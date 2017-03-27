@@ -6,7 +6,7 @@ import android.graphics.Bitmap;
 /**
  * Photo that holds a GL texture and all its methods must be only accessed from the GL thread.
  */
-public class Photo {
+public class Image {
 
     private int texture = -1;
     private int width;
@@ -15,16 +15,16 @@ public class Photo {
     /**
      * Factory method to ensure every Photo instance holds a valid texture.
      */
-    public static Photo create(Bitmap bitmap) {
-        return (bitmap != null) ? new Photo(
+    public static Image create(Bitmap bitmap) {
+        return (bitmap != null) ? new Image(
                 RendererUtils.createTexture(bitmap), bitmap.getWidth(), bitmap.getHeight()) : null;
     }
 
-    public static Photo create(int width, int height) {
-        return new Photo(RendererUtils.createTexture(), width, height);
+    public static Image create(int width, int height) {
+        return new Image(RendererUtils.createTexture(), width, height);
     }
 
-    public Photo(int texture, int width, int height) {
+    public Image(int texture, int width, int height) {
         this.texture = texture;
         this.width = width;
         this.height = height;
@@ -44,8 +44,8 @@ public class Photo {
     	RendererUtils.clearTexture(this.texture);
     	this.texture = texture;
     }
-    public boolean matchDimension(Photo photo) {
-        return ((photo.width == width) && (photo.height == height));
+    public boolean matchDimension(Image Image) {
+        return ((Image.width == width) && (Image.height == height));
     }
 
     public void changeDimension(int width, int height) {
@@ -79,10 +79,10 @@ public class Photo {
         this.height = height;
     }
     
-    public void swap(Photo photo)
+    public void swap(Image image)
     {
     	int tmp = texture;
-    	texture = photo.texture;
-    	photo.texture = tmp;
+    	texture = image.texture;
+        image.texture = tmp;
     }
 }

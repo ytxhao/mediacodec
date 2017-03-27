@@ -9,7 +9,6 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
-import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -46,18 +45,22 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
     private static final String TAG = "VideoGlSurfaceView";
 
-    public GraphicRenderer renderer;
+
     volatile boolean updateSurface = false;
     volatile boolean mIsResume = false;
-
     volatile boolean isInitial = false;
 
-    VideoDecodeThread mVideoDecodeThread ;
-    Photo mPhoto;
-    Photo mTexturePhoto;
+    private GraphicRenderer renderer;
+    private VideoDecodeThread mVideoDecodeThread;
+    private Image mImage;
+    private Image mTextureImage;
 
-    Filter mFilter;
-    Photo mMiddlePhoto;
+    private Filter mFilter;
+    private Image mMiddlePhoto;
+    private GlslFilter mTextureFilter;
+
+    private int mSurfaceTextureId;
+    private float[] mTextureMatrix = new float[16];
 
     public VideoGlSurfaceView(Context context) {
         super(context);
@@ -69,8 +72,8 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         initView(context);
     }
 
-    private void initView(Context context){
-        if(!supportsOpenGLES2(context)){
+    private void initView(Context context) {
+        if (!supportsOpenGLES2(context)) {
             throw new RuntimeException("not support gles 2.0");
         }
 
@@ -88,28 +91,119 @@ public class VideoGlSurfaceView extends GLSurfaceView {
     }
 
 
+    private void initial() {
+
+        mTextureFilter = new GlslFilter(getContext());
+        mTextureFilter.setType(GlslFilter.GL_TEXTURE_EXTERNAL_OES);
+        mTextureFilter.initial();
+        mSurfaceTextureId = RendererUtils.createTexture();
+
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
+        RendererUtils.checkGlError("glBindTexture mTextureID");
+        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MIN_FILTER,
+                GLES20.GL_NEAREST);
+        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MAG_FILTER,
+                GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,
+                GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,
+                GLES20.GL_CLAMP_TO_EDGE);
+
+
+        RendererUtils.checkGlError("surfaceCreated");
+        updateSurface = false;
+        mVideoDecodeThread = new VideoDecodeThread(this);
+        mVideoDecodeThread.start();
+
+    }
+
+
+    public void drawFrame() {
+
+        if (mVideoDecodeThread == null) {
+            return;
+        }
+
+        int videoWith = mVideoDecodeThread.getVideoWidth();
+        int videoHeight = mVideoDecodeThread.getVideoHeight();
+        if (videoWith == 0 || videoHeight == 0) {
+            return;
+        }
+        long lastTime = System.currentTimeMillis();
+
+        if (mImage == null) {
+            mImage = Image.create(videoWith, videoHeight);
+        } else {
+            mImage.updateSize(videoWith, videoHeight);
+        }
+
+        if (mTextureImage == null) {
+            mTextureImage = new Image(mSurfaceTextureId, videoWith, videoHeight);
+        }
+
+        synchronized (this) {
+            if (updateSurface) {
+                mVideoDecodeThread.updateSurfaceTexture(mTextureMatrix);
+                mTextureFilter.updateTextureMatrix(mTextureMatrix);
+                updateSurface = false;
+            }
+
+            RendererUtils.checkGlError("drawFrame");
+            mTextureFilter.process(mTextureImage, mImage);
+            Image dst = appFilter(mImage);
+            setImage(dst);
+        }
+    }
+
+
+    public void queue(Runnable r) {
+        renderer.queue.add(r);
+        requestRender();
+    }
+
+    public void remove(Runnable runnable) {
+        renderer.queue.remove(runnable);
+    }
+
+    public void flush() {
+        renderer.queue.clear();
+    }
+
+
+    int getSurfaceTextureId() {
+        return mSurfaceTextureId;
+    }
+
+
+    synchronized public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        updateSurface = true;
+        requestRender();
+    }
+
+
+    protected Image appFilter(Image src) {
+        if (mFilter != null) {
+            if (mMiddlePhoto == null && src != null) {
+                mMiddlePhoto = Image.create(src.width(), src.height());
+            }
+            mFilter.process(src, mMiddlePhoto);
+            return mMiddlePhoto;
+        }
+        return src;
+    }
+
+    public void setImage(Image image) {
+        renderer.setImage(image);
+    }
+
     private boolean supportsOpenGLES2(final Context context) {
         final ActivityManager activityManager = (ActivityManager)
                 context.getSystemService(Context.ACTIVITY_SERVICE);
         final ConfigurationInfo configurationInfo =
                 activityManager.getDeviceConfigurationInfo();
         return configurationInfo.reqGlEsVersion >= 0x20000;
-    }
-
-    private static class ContextFactory implements GLSurfaceView.EGLContextFactory {
-        private static int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
-        public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
-            Log.w(TAG, "creating OpenGL ES 2.0 context");
-            checkEglError("Before eglCreateContext", egl);
-            int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE };
-            EGLContext context = egl.eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
-            checkEglError("After eglCreateContext", egl);
-            return context;
-        }
-
-        public void destroyContext(EGL10 egl, EGLDisplay display, EGLContext context) {
-            egl.eglDestroyContext(display, context);
-        }
     }
 
     private static void checkEglError(String prompt, EGL10 egl) {
@@ -120,10 +214,46 @@ public class VideoGlSurfaceView extends GLSurfaceView {
     }
 
 
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "onResume");
+        mIsResume = true;
+        flush();
+        queue(new Runnable() {
+            @Override
+            public void run() {
+                if (!isInitial) {
+                    isInitial = true;
+                    initial();
+                }
+            }
+        });
+    }
+
+
+    public void onPuase() {
+    }
+
+    private static class ContextFactory implements GLSurfaceView.EGLContextFactory {
+        private static int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
+
+        public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
+            Log.w(TAG, "creating OpenGL ES 2.0 context");
+            checkEglError("Before eglCreateContext", egl);
+            int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE};
+            EGLContext context = egl.eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
+            checkEglError("After eglCreateContext", egl);
+            return context;
+        }
+
+        public void destroyContext(EGL10 egl, EGLDisplay display, EGLContext context) {
+            egl.eglDestroyContext(display, context);
+        }
+    }
 
     static class VideoDecodeThread extends WorkThread {
 
-        private String [] filePath = new String[]{
+        private static final String[] filePath = new String[]{
                 "/storage/emulated/0/titanic.mkv",
                 "/storage/emulated/0/video2.mp4",
                 "/storage/emulated/0/gqfc07.ts",
@@ -132,35 +262,26 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
         private static final int COLOR_FormatI420 = 1;
         private static final int COLOR_FormatNV21 = 2;
-        int mVideoWidth;
-        int mVideoHeight;
-        int mWidth;
-        int mHeight;
-       // VideoFrame mRemainFrame;
         private static final int DEQUEUE_INPUT_TIMEOUT = 2000;
         private static final int DEQUEUE_OUTPUT_TIMEOUT = 2000;
-        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+
+        private volatile boolean mInitialError = false;
+
+        private int mVideoWidth;
+        private int mVideoHeight;
+
+        private MediaFormat mediaFormat;
+        private MediaExtractor extractor = null;
+        private MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         private MediaCodec decoder;
-        volatile boolean mInitialError = false;
 
-        Surface mSurface;
-        SurfaceTexture mSurfaceTexture;
+        private Surface mSurface;
+        private SurfaceTexture mSurfaceTexture;
 
+        private AndroidHardwareCodecUtils.DecoderProperties decoderProperty;
 
-        private boolean isSupportHardWare = false;
-        private final int decodeColorFormat = 0;
-        private Throwable throwable;
+        private WeakReference<VideoGlSurfaceView> mVideoGlSurfaceViewGPURef;
 
-        int outputFrameCount = 0;
-        private int height;
-        private int width;
-        MediaFormat mediaFormat;
-        MediaExtractor extractor = null;
-        private boolean stopDecode = false;
-        private AndroidHardwareCodecUtils.DecoderProperties decoderProperty ;
-        private String OUTPUT_DIR="/storage/emulated/0/ccc/";
-        WeakReference<VideoGlSurfaceView> mVideoGlSurfaceViewGPURef;
-        private LinkedBlockingQueue<byte[]> mQueue;
         public VideoDecodeThread(VideoGlSurfaceView mVideoGlSurfaceViewGPURef) {
             super("VideoDecodeThread");
             Log.d(TAG, "VideoDecodeThread start");
@@ -177,7 +298,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
 
         @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-        private void compressToJpeg(String fileName, Image image) {
+        private void compressToJpeg(String fileName, android.media.Image image) {
             FileOutputStream outStream;
             try {
                 outStream = new FileOutputStream(fileName);
@@ -189,7 +310,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             yuvImage.compressToJpeg(rect, 100, outStream);
         }
 
-        private static boolean isImageFormatSupported(Image image) {
+        private static boolean isImageFormatSupported(android.media.Image image) {
             int format = image.getFormat();
             switch (format) {
                 case ImageFormat.YUV_420_888:
@@ -201,7 +322,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
 
         @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-        private static byte[] getDataFromImage(Image image, int colorFormat) {
+        private static byte[] getDataFromImage(android.media.Image image, int colorFormat) {
             if (colorFormat != COLOR_FormatI420 && colorFormat != COLOR_FormatNV21) {
                 throw new IllegalArgumentException("only support COLOR_FormatI420 " + "and COLOR_FormatNV21");
             }
@@ -212,7 +333,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             int format = image.getFormat();
             int width = crop.width();
             int height = crop.height();
-            Image.Plane[] planes = image.getPlanes();
+            android.media.Image.Plane[] planes = image.getPlanes();
             byte[] data = new byte[width * height * ImageFormat.getBitsPerPixel(format) / 8];
             byte[] rowData = new byte[planes[0].getRowStride()];
             Log.v(TAG, "get data from " + planes.length + " planes");
@@ -292,27 +413,27 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             if (mInitialError) {
                 return 0;
             }
-            if (decoder == null ) {
 
+            if (decoder == null) {
                 releaseMediaDecode();
-                configureMediaDecode(mWidth, mHeight);
+                configureMediaDecode();
             }
+
             if (decoder == null) {
                 return 0;
             }
 
             int inputBufIndex = decoder.dequeueInputBuffer(DEQUEUE_INPUT_TIMEOUT);
             if (inputBufIndex >= 0) {
-                    ByteBuffer inputBuffer = decoder.getInputBuffer(inputBufIndex);
-                    int sampleSize = extractor.readSampleData(inputBuffer, 0);
-                    if (sampleSize < 0) {
-                        decoder.queueInputBuffer(inputBufIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                        //sawInputEOS = true;
-                    } else {
-                        long presentationTimeUs = extractor.getSampleTime();
-                        decoder.queueInputBuffer(inputBufIndex, 0, sampleSize, presentationTimeUs, 0);
-                        extractor.advance();
-                    }
+                ByteBuffer inputBuffer = decoder.getInputBuffer(inputBufIndex);
+                int sampleSize = extractor.readSampleData(inputBuffer, 0);
+                if (sampleSize < 0) {
+                    decoder.queueInputBuffer(inputBufIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                } else {
+                    long presentationTimeUs = extractor.getSampleTime();
+                    decoder.queueInputBuffer(inputBufIndex, 0, sampleSize, presentationTimeUs, 0);
+                    extractor.advance();
+                }
 
             }
 
@@ -321,24 +442,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
                     return 0;
                 int res = decoder.dequeueOutputBuffer(info, DEQUEUE_OUTPUT_TIMEOUT);
                 if (res >= 0) {
-                    boolean doRender = (info.size != 0);
-/*
-                    if (doRender) {
-                        outputFrameCount++;
-                        String fileName;
-                        Image image = decoder.getOutputImage(res);
-                        Log.i(TAG,"image format: " + image.getFormat());
-
-                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                        byte[] arr = new byte[buffer.remaining()];
-                        buffer.get(arr);
-
-                        fileName = OUTPUT_DIR + String.format("frame_%05d.jpg", outputFrameCount);
-                        compressToJpeg(fileName, image);
-                    }
-*/
-
-
                     MediaFormat outformat = decoder.getOutputFormat();
                     mVideoWidth = outformat.getInteger(MediaFormat.KEY_WIDTH);
                     mVideoHeight = outformat.getInteger(MediaFormat.KEY_HEIGHT);
@@ -359,12 +462,10 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
         @Override
         protected void doInitial() {
-            Log.d(TAG," doInitial");
-            mWidth = 0;
-            mHeight = 0;
+            Log.d(TAG, " doInitial");
             int surfaceId = 0;
-
             File videoFile = new File(filePath[0]);
+
             extractor = new MediaExtractor();
             try {
                 extractor.setDataSource(videoFile.toString());
@@ -379,14 +480,12 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             extractor.selectTrack(trackIndex);
             mediaFormat = extractor.getTrackFormat(trackIndex);
             String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
-            height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
-            width = mediaFormat.getInteger(MediaFormat.KEY_WIDTH);
-            Log.i(TAG,"height="+height+" width="+ width);
 
             decoderProperty = AndroidHardwareCodecUtils.findAVCDecoder(mime);
             if (mVideoGlSurfaceViewGPURef != null && mVideoGlSurfaceViewGPURef.get() != null) {
                 surfaceId = mVideoGlSurfaceViewGPURef.get().getSurfaceTextureId();
             }
+
             mSurfaceTexture = new SurfaceTexture(surfaceId);
             mSurfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
 
@@ -398,13 +497,14 @@ public class VideoGlSurfaceView extends GLSurfaceView {
                     }
                 }
             });
+
             mSurface = new Surface(mSurfaceTexture);
             mInitialError = false;
         }
 
         @Override
         protected void doRelease() {
-            Log.d(TAG , " doRelease");
+            Log.d(TAG, " doRelease");
 
             mSurfaceTexture.setOnFrameAvailableListener(null);
             mSurfaceTexture.release();
@@ -412,15 +512,13 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
             releaseMediaDecode();
 
-            Log.d(TAG , " VideoDecodeThread stop");
+            Log.d(TAG, " VideoDecodeThread stop");
         }
 
-        void configureMediaDecode(int width, int height) {
-            Log.d(TAG , " configureMediaDecode width:" + width + " height:" + height);
-
+        void configureMediaDecode() {
             try {
 
-                Log.d(TAG ,"Codec Name--------" + decoderProperty.codecName +
+                Log.d(TAG, "Codec Name--------" + decoderProperty.codecName +
                         "Codec Format--------" + decoderProperty.colorFormat);
                 try {
                     decoder = MediaCodec.createByCodecName(decoderProperty.codecName);
@@ -438,7 +536,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
 
         void releaseMediaDecode() {
-            Log.d(TAG," releaseMediaDecode");
+            Log.d(TAG, " releaseMediaDecode");
             if (decoder != null) {
                 try {
                     decoder.stop();
@@ -456,7 +554,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
 
 
-
         private static int selectTrack(MediaExtractor extractor) {
             int numTracks = extractor.getTrackCount();
             for (int i = 0; i < numTracks; i++) {
@@ -472,130 +569,4 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
     }
 
-
-    GlslFilter mTextureFilter;
-    int mSurfaceTextureId;
-    float[] mTextureMatrix = new float[16];
-
-    protected void initial() {
-
-        mTextureFilter = new GlslFilter(getContext());
-        mTextureFilter.setType(GlslFilter.GL_TEXTURE_EXTERNAL_OES);
-        mTextureFilter.initial();
-        mSurfaceTextureId = RendererUtils.createTexture();
-
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
-        RendererUtils.checkGlError("glBindTexture mTextureID");
-        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                GLES20.GL_TEXTURE_MIN_FILTER,
-                GLES20.GL_NEAREST);
-        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                GLES20.GL_TEXTURE_MAG_FILTER,
-                GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,
-                GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,
-                GLES20.GL_CLAMP_TO_EDGE);
-
-
-        RendererUtils.checkGlError("surfaceCreated");
-        updateSurface = false;
-        mVideoDecodeThread = new VideoDecodeThread(this);
-        mVideoDecodeThread.start();
-
-    }
-
-
-    public void drawFrame(){
-
-        if (mVideoDecodeThread == null) {
-            return;
-        }
-        int videoWith = mVideoDecodeThread.getVideoWidth();
-        int videoHeight = mVideoDecodeThread.getVideoHeight();
-        if (videoWith == 0 || videoHeight == 0) {
-            return;
-        }
-        long lastTime = System.currentTimeMillis();
-        if (mPhoto == null) {
-            mPhoto = Photo.create(videoWith, videoHeight);
-        } else {
-            mPhoto.updateSize(videoWith, videoHeight);
-        }
-        if(mTexturePhoto==null){
-            mTexturePhoto = new Photo(mSurfaceTextureId,videoWith, videoHeight);
-        }
-
-        synchronized (this) {
-            if (updateSurface) {
-                mVideoDecodeThread.updateSurfaceTexture(mTextureMatrix);
-                mTextureFilter.updateTextureMatrix(mTextureMatrix);
-                updateSurface = false;
-            }
-
-            RendererUtils.checkGlError("drawFrame");
-            mTextureFilter.process(mTexturePhoto, mPhoto);
-            Photo dst = appFilter(mPhoto);
-            setPhoto(dst);
-        }
-    }
-
-
-    public void onResume() {
-        super.onResume();
-        Log.d(TAG, "onResume");
-        mIsResume = true;
-        flush();
-        queue(new Runnable() {
-            @Override
-            public void run() {
-                if (!isInitial) {
-                    isInitial = true;
-                    initial();
-                }
-            }
-        });
-    }
-
-
-    public void queue(Runnable r) {
-        renderer.queue.add(r);
-        requestRender();
-    }
-
-    public void remove(Runnable runnable) {
-        renderer.queue.remove(runnable);
-    }
-
-    public void flush() {
-        renderer.queue.clear();
-    }
-
-
-    int getSurfaceTextureId() {
-        return mSurfaceTextureId;
-    }
-
-    synchronized public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-        updateSurface = true;
-        requestRender();
-    }
-
-
-    protected Photo appFilter(Photo src){
-        if(mFilter!=null){
-            if(mMiddlePhoto==null && src!=null){
-                mMiddlePhoto = Photo.create(src.width(),src.height());
-            }
-            mFilter.process(src,mMiddlePhoto);
-            return mMiddlePhoto;
-        }
-        return src;
-    }
-
-    public void setPhoto(Photo photo) {
-        renderer.setPhoto(photo);
-//        mWidth = photo.width();
-//        mHeight = photo.height();
-    }
 }

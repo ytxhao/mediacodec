@@ -18,39 +18,19 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class GraphicRenderer implements GLSurfaceView.Renderer {
 
-    final Vector<Runnable> queue = new Vector<Runnable>();
 
-    private int mSurfaceWidth , mSurfaceHeight ;
-    private int mVideoWidth, mVideoHeight;
-
-    private int mNativeRenderContext;
     public int mMaxTextureSize;
-    RendererUtils.RenderContext renderContext;
-    VideoGlSurfaceView mGLSurfaceView;
-    Photo photo;
-    int viewWidth;
-    int viewHeight;
-    private static final int FLOAT_SIZE_BYTES = 4;
-    private FloatBuffer createVerticesBuffer(float[] vertices) {
+    public int viewWidth;
+    public int viewHeight;
 
-        FloatBuffer buffer = ByteBuffer
-                .allocateDirect(vertices.length * FLOAT_SIZE_BYTES)
-                .order(ByteOrder.nativeOrder()).asFloatBuffer();
-        buffer.put(vertices).position(0);
-        return buffer;
-    }
+    public RendererUtils.RenderContext renderContext;
+    public VideoGlSurfaceView mGLSurfaceView;
+    public Image image;
 
-    void setPhoto(Photo photo) {
-        this.photo = photo;
-    }
-
-    public GraphicRenderer(){
-        initNativeOnce();
-
-    }
-
+    public final Vector<Runnable> queue = new Vector<Runnable>();
 
     private static volatile boolean mIsNativeInitialized = false;
+
     private static void initNativeOnce() {
         synchronized (GraphicRenderer.class) {
             if (!mIsNativeInitialized) {
@@ -59,6 +39,17 @@ public class GraphicRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    public GraphicRenderer() {
+        initNativeOnce();
+    }
+
+    public void setImage(Image image) {
+        this.image = image;
+    }
+
+    public void setGlSurfaceView(VideoGlSurfaceView mGLSurfaceView) {
+        this.mGLSurfaceView = mGLSurfaceView;
+    }
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
@@ -87,27 +78,19 @@ public class GraphicRenderer implements GLSurfaceView.Renderer {
         if (r != null) {
             r.run();
         }
-       // if (!queue.isEmpty()) {
+        // if (!queue.isEmpty()) {
         mGLSurfaceView.requestRender();
-      //  }
+        //  }
         RendererUtils.renderBackground();
         mGLSurfaceView.drawFrame();
 
-        if (photo != null) {
-           // buildAnimal();
-          //  setRenderMatrix(photo.width(), photo.height());
-            RendererUtils.renderTexture(renderContext, photo.texture(),
+        if (image != null) {
+            // buildAnimal();
+            //  setRenderMatrix(image.width(), image.height());
+            RendererUtils.renderTexture(renderContext, image.texture(),
                     viewWidth, viewHeight);
         }
     }
-
-
-
-
-    public void setGlSurfaceView(VideoGlSurfaceView mGLSurfaceView){
-            this.mGLSurfaceView = mGLSurfaceView;
-    }
-
 
 
 }

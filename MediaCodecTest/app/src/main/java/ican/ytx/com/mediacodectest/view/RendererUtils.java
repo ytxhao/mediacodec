@@ -361,8 +361,7 @@ public class RendererUtils {
         checkGlError("glBindTexture");
         GLES20.glUniform1i(context.texSamplerHandle, 0);
         GLES20.glUniform1f(context.alphaHandle, context.alpha);
-        GLES20.glUniformMatrix4fv(context.modelViewMatHandle, 1, false, context.mModelViewMat,
-                0);
+        GLES20.glUniformMatrix4fv(context.modelViewMatHandle, 1, false, context.mModelViewMat, 0);
         checkGlError("modelViewMatHandle");
         // Draw!
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);

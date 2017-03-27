@@ -9,7 +9,7 @@ public class Filter {
 
     }
 
-    public void process(Photo in, Photo out){
+    public void process(Image in, Image out){
 
     }
 }

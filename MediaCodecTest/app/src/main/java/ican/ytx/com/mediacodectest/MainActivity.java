@@ -1,5 +1,6 @@
 package ican.ytx.com.mediacodectest;
 
+import android.graphics.Picture;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
@@ -24,7 +25,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mVideoGlSurfaceView = (VideoGlSurfaceView) findViewById(R.id.surfaceView);
-
 
     }
 

@@ -80,7 +80,7 @@ public class GlslFilter extends Filter{
 
     boolean isInitialed = false;
     GlslFilter mNextGlslFilter;
-    Photo mMiddlePhoto;
+    Image mMiddlePhoto;
 
     protected Context mContext;
 
@@ -241,24 +241,24 @@ public class GlslFilter extends Filter{
         }
     }
 
-    public void process(Photo in, Photo out){
+    public void process(Image in, Image out){
         if (mNextGlslFilter == null) {
             processInner(in, out);
         } else {
             if(mMiddlePhoto==null){
-                Photo tmp = in;
+                Image tmp = in;
                 if(tmp==null){
                     tmp = out;
                 }
                 if(tmp!=null)
-                mMiddlePhoto = Photo.create(tmp.width(), tmp.height());
+                mMiddlePhoto = Image.create(tmp.width(), tmp.height());
             }
             processInner(in, mMiddlePhoto);
             mNextGlslFilter.processInner(mMiddlePhoto, out);
         }
     }
 
-    private void processInner(Photo in, Photo out) {
+    private void processInner(Image in, Image out) {
         if (shaderProgram == 0)
             return;
         if (out == null) {
@@ -329,8 +329,7 @@ public class GlslFilter extends Filter{
 
         GLES20.glUniformMatrix4fv(texCoordMatHandle, 1, false, mTextureMat, 0);
         checkGlError("texCoordMatHandle");
-        GLES20.glUniformMatrix4fv(modelViewMatHandle, 1, false, mModelViewMat,
-                0);
+        GLES20.glUniformMatrix4fv(modelViewMatHandle, 1, false, mModelViewMat, 0);
         checkGlError("modelViewMatHandle");
 
         updateParams();
