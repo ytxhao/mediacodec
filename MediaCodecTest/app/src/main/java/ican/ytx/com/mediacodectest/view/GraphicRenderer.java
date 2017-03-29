@@ -3,9 +3,6 @@ package ican.ytx.com.mediacodectest.view;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.Vector;
 
@@ -18,14 +15,14 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class GraphicRenderer implements GLSurfaceView.Renderer {
 
+    public int mScreenWidth;
+    public int mScreenHeight;
 
-    public int mMaxTextureSize;
-    public int viewWidth;
-    public int viewHeight;
-
-    public RendererUtils.RenderContext renderContext;
+    public RendererUtils2.RenderContext renderContext;
     public VideoGlSurfaceView mGLSurfaceView;
     public Image image;
+
+    public VideoFrame mVideoFrame;
 
     public final Vector<Runnable> queue = new Vector<Runnable>();
 
@@ -47,6 +44,10 @@ public class GraphicRenderer implements GLSurfaceView.Renderer {
         this.image = image;
     }
 
+    public void setVideoFrame(VideoFrame mVideoFrame) {
+        this.mVideoFrame = mVideoFrame;
+    }
+
     public void setGlSurfaceView(VideoGlSurfaceView mGLSurfaceView) {
         this.mGLSurfaceView = mGLSurfaceView;
     }
@@ -54,17 +55,16 @@ public class GraphicRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES20.glEnable(GLES20.GL_TEXTURE_2D);
-        IntBuffer buffer = IntBuffer.allocate(1);
-        GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, buffer);
-        mMaxTextureSize = buffer.get(0);
         GLES20.glGetError();
-        renderContext = RendererUtils.createProgram();
+        renderContext = RendererUtils2.createProgram();
     }
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
-        viewWidth = width;
-        viewHeight = height;
+        mScreenWidth = width;
+        mScreenHeight = height;
+        // Set viewport
+        GLES20.glViewport(0, 0,mScreenWidth, mScreenHeight);
     }
 
     @Override
@@ -78,17 +78,16 @@ public class GraphicRenderer implements GLSurfaceView.Renderer {
         if (r != null) {
             r.run();
         }
-        // if (!queue.isEmpty()) {
-        mGLSurfaceView.requestRender();
-        //  }
-        RendererUtils.renderBackground();
-        mGLSurfaceView.drawFrame();
 
-        if (image != null) {
-            // buildAnimal();
-            //  setRenderMatrix(image.width(), image.height());
-            RendererUtils.renderTexture(renderContext, image.texture(),
-                    viewWidth, viewHeight);
+        // if (!queue.isEmpty()) {
+        //mGLSurfaceView.requestRender();
+        //  }
+        synchronized(this) {
+            RendererUtils2.renderBackground();
+            //mGLSurfaceView.drawFrame();
+            if (mVideoFrame != null) {
+                RendererUtils2.renderTexture(renderContext, mVideoFrame, mScreenWidth, mScreenHeight);
+            }
         }
     }
 

@@ -1,6 +1,5 @@
 package ican.ytx.com.mediacodectest.view;
 
-import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ConfigurationInfo;
@@ -12,10 +11,7 @@ import android.graphics.YuvImage;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.opengl.GLES11Ext;
-import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
@@ -52,6 +48,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
     private GraphicRenderer renderer;
     private VideoDecodeThread mVideoDecodeThread;
+    private VideoRefreshThread mVideoRefreshThread;
     private Image mImage;
     private Image mTextureImage;
 
@@ -61,7 +58,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
     private int mSurfaceTextureId;
     private float[] mTextureMatrix = new float[16];
-
+    public LinkedBlockingQueue<VideoFrame> mVFrameQueue = new LinkedBlockingQueue<VideoFrame>(30);
     public VideoGlSurfaceView(Context context) {
         super(context);
         initView(context);
@@ -93,27 +90,31 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
     private void initial() {
 
-        mTextureFilter = new GlslFilter(getContext());
-        mTextureFilter.setType(GlslFilter.GL_TEXTURE_EXTERNAL_OES);
-        mTextureFilter.initial();
-        mSurfaceTextureId = RendererUtils.createTexture();
+//        mTextureFilter = new GlslFilter(getContext());
+//        mTextureFilter.setType(GlslFilter.GL_TEXTURE_EXTERNAL_OES);
+//        mTextureFilter.initial();
+//        mSurfaceTextureId = RendererUtils.createTexture();
+//
+//        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
+//        RendererUtils.checkGlError("glBindTexture mTextureID");
+//        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+//                GLES20.GL_TEXTURE_MIN_FILTER,
+//                GLES20.GL_NEAREST);
+//        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+//                GLES20.GL_TEXTURE_MAG_FILTER,
+//                GLES20.GL_LINEAR);
+//        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,
+//                GLES20.GL_CLAMP_TO_EDGE);
+//        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,
+//                GLES20.GL_CLAMP_TO_EDGE);
+//
+//
+//        RendererUtils.checkGlError("surfaceCreated");
+//        updateSurface = false;
 
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
-        RendererUtils.checkGlError("glBindTexture mTextureID");
-        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                GLES20.GL_TEXTURE_MIN_FILTER,
-                GLES20.GL_NEAREST);
-        GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                GLES20.GL_TEXTURE_MAG_FILTER,
-                GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,
-                GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,
-                GLES20.GL_CLAMP_TO_EDGE);
+        mVideoRefreshThread = new VideoRefreshThread(this);
+        mVideoRefreshThread.start();
 
-
-        RendererUtils.checkGlError("surfaceCreated");
-        updateSurface = false;
         mVideoDecodeThread = new VideoDecodeThread(this);
         mVideoDecodeThread.start();
 
@@ -198,6 +199,10 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         renderer.setImage(image);
     }
 
+    public void setVideoFrame(VideoFrame mVideoFrame){
+        renderer.setVideoFrame(mVideoFrame);
+    }
+
     private boolean supportsOpenGLES2(final Context context) {
         final ActivityManager activityManager = (ActivityManager)
                 context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -251,6 +256,83 @@ public class VideoGlSurfaceView extends GLSurfaceView {
         }
     }
 
+    static class VideoRefreshThread extends WorkThread{
+
+        private WeakReference<VideoGlSurfaceView> mVideoGlSurfaceViewGPURef;
+        private long time;
+        private long delay;
+        private long frameTimer;
+        private long remainingTimeMillis;
+        private int remainingTimeNanos;
+        private double AV_SYNC_THRESHOLD_MAX = 0.1;
+        private boolean isRefresh = false;
+        private VideoFrame mFrameCurrent;
+        private VideoFrame mFrameNext;
+        public VideoRefreshThread(VideoGlSurfaceView mVideoGlSurfaceViewGPURef) {
+            super("VideoRefreshThread");
+            this.mVideoGlSurfaceViewGPURef = new WeakReference<VideoGlSurfaceView>(mVideoGlSurfaceViewGPURef);
+
+        }
+
+        @Override
+        protected int doRepeatWork() throws InterruptedException {
+
+            if(remainingTimeNanos > 0){
+                sleep(0, remainingTimeNanos);
+            }
+            remainingTimeNanos = 0;
+
+            if (mVideoGlSurfaceViewGPURef != null && mVideoGlSurfaceViewGPURef.get() != null) {
+
+//                if(!isRefresh){
+//                    isRefresh = true;
+//
+//                    if(mFrameNext != null){
+//                        mFrameCurrent = mFrameNext;
+//                    }else{
+                        mFrameCurrent = mVideoGlSurfaceViewGPURef.get().mVFrameQueue.take();
+//                    }
+//                    mFrameNext = mVideoGlSurfaceViewGPURef.get().mVFrameQueue.take();
+//
+//                }
+//
+//                time = System.currentTimeMillis();
+//                if(mFrameNext.timeStamp >= mFrameCurrent.timeStamp){
+//                    delay = mFrameNext.timeStamp - mFrameCurrent.timeStamp;
+//                }
+//
+//                if (time < frameTimer + delay) { //如果当前时间小于(frame_timer+delay)则不去frameQueue取下一帧直接刷新当前帧
+//                    remainingTimeMillis = Math.min(frameTimer + delay - time, remainingTimeMillis); //显示下一帧还差多长时间
+//                    return 0;
+//                }
+//
+//
+//
+//                frameTimer += delay; //下一帧需要在这个时间显示
+//                if (delay > 0 && time - frameTimer > AV_SYNC_THRESHOLD_MAX) {
+//                    frameTimer = time;
+//                }
+
+                mVideoGlSurfaceViewGPURef.get().setVideoFrame(mFrameCurrent);
+                mVideoGlSurfaceViewGPURef.get().requestRender();
+                isRefresh = false;
+
+            }
+
+            return 0;
+        }
+
+        @Override
+        protected void doInitial() {
+
+        }
+
+        @Override
+        protected void doRelease() {
+
+        }
+    }
+
     static class VideoDecodeThread extends WorkThread {
 
         private static final String[] filePath = new String[]{
@@ -277,7 +359,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
         private Surface mSurface;
         private SurfaceTexture mSurfaceTexture;
-
+        FileOutputStream outStream;
         private AndroidHardwareCodecUtils.DecoderProperties decoderProperty;
 
         private WeakReference<VideoGlSurfaceView> mVideoGlSurfaceViewGPURef;
@@ -297,7 +379,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             return mVideoHeight;
         }
 
-        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
         private void compressToJpeg(String fileName, android.media.Image image) {
             FileOutputStream outStream;
             try {
@@ -321,7 +402,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             return false;
         }
 
-        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
         private static byte[] getDataFromImage(android.media.Image image, int colorFormat) {
             if (colorFormat != COLOR_FormatI420 && colorFormat != COLOR_FormatNV21) {
                 throw new IllegalArgumentException("only support COLOR_FormatI420 " + "and COLOR_FormatNV21");
@@ -401,7 +481,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             return data;
         }
 
-        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
         @Override
         protected int doRepeatWork() throws InterruptedException {
 
@@ -431,6 +510,7 @@ public class VideoGlSurfaceView extends GLSurfaceView {
                     decoder.queueInputBuffer(inputBufIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                 } else {
                     long presentationTimeUs = extractor.getSampleTime();
+                   // Log.d(TAG,"presentationTimeUs="+presentationTimeUs);
                     decoder.queueInputBuffer(inputBufIndex, 0, sampleSize, presentationTimeUs, 0);
                     extractor.advance();
                 }
@@ -442,13 +522,53 @@ public class VideoGlSurfaceView extends GLSurfaceView {
                     return 0;
                 int res = decoder.dequeueOutputBuffer(info, DEQUEUE_OUTPUT_TIMEOUT);
                 if (res >= 0) {
-                    MediaFormat outformat = decoder.getOutputFormat();
-                    mVideoWidth = outformat.getInteger(MediaFormat.KEY_WIDTH);
-                    mVideoHeight = outformat.getInteger(MediaFormat.KEY_HEIGHT);
-                    decoder.releaseOutputBuffer(res, true);
+                    if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        /**
+                         * 文件已读取到结尾
+                         */
+                        //sawOutputEOS = true;
+                        try {
+                            outStream.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    boolean doRender = (info.size != 0);
+
+                    if(doRender){
+
+                        MediaFormat outformat = decoder.getOutputFormat();
+                        mVideoWidth = outformat.getInteger(MediaFormat.KEY_WIDTH);
+                        mVideoHeight = outformat.getInteger(MediaFormat.KEY_HEIGHT);
+                        android.media.Image image = decoder.getOutputImage(res);
+
+//                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+//                        byte[] arr = new byte[buffer.remaining()];
+//                        buffer.get(arr);
+
+                        VideoFrame mFrame = new VideoFrame();
+                        mFrame.timeStamp = info.presentationTimeUs;
+                        mFrame.height = mVideoHeight;
+                        mFrame.width = mVideoWidth;
+                        mFrame.data = getDataFromImage(image, COLOR_FormatI420);
+
+                        try {
+                            outStream.write(mFrame.data);
+                        } catch (IOException ioe) {
+                            throw new RuntimeException("failed writing data to file ", ioe);
+                        }
+
+                        if (mVideoGlSurfaceViewGPURef != null && mVideoGlSurfaceViewGPURef.get() != null) {
+                            mVideoGlSurfaceViewGPURef.get().mVFrameQueue.put(mFrame);
+                        }
+
+                        decoder.releaseOutputBuffer(res, true);
+                    }
+
                 } else if (res == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
                 } else if (res == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 } else {
+
                     break;
                 }
             }
@@ -480,7 +600,6 @@ public class VideoGlSurfaceView extends GLSurfaceView {
             extractor.selectTrack(trackIndex);
             mediaFormat = extractor.getTrackFormat(trackIndex);
             String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
-
             decoderProperty = AndroidHardwareCodecUtils.findAVCDecoder(mime);
             if (mVideoGlSurfaceViewGPURef != null && mVideoGlSurfaceViewGPURef.get() != null) {
                 surfaceId = mVideoGlSurfaceViewGPURef.get().getSurfaceTextureId();
@@ -500,6 +619,12 @@ public class VideoGlSurfaceView extends GLSurfaceView {
 
             mSurface = new Surface(mSurfaceTexture);
             mInitialError = false;
+
+            try {
+                outStream = new FileOutputStream("/storage/emulated/0/test.yuv");
+            } catch (IOException ioe) {
+                throw new RuntimeException("Unable to create output file ", ioe);
+            }
         }
 
         @Override
@@ -526,7 +651,10 @@ public class VideoGlSurfaceView extends GLSurfaceView {
                     e.printStackTrace();
                 }
 
-                decoder.configure(mediaFormat, mSurface, null, 0);
+                mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                        decoderProperty.colorFormat);
+               // decoder.configure(mediaFormat, mSurface, null, 0);
+                decoder.configure(mediaFormat, null, null, 0);
                 decoder.start();
             } catch (Exception e) {
                 mInitialError = true;
