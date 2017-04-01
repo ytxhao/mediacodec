@@ -1,12 +1,12 @@
 
-package ican.ytx.com.mediacodectest.view;
+package ican.ytx.com.mediacodectest.media.player.render;
 
 import android.graphics.Bitmap;
 
 /**
  * Photo that holds a GL texture and all its methods must be only accessed from the GL thread.
  */
-public class Image {
+public class Picture {
 
     private int texture = -1;
     private int width;
@@ -15,16 +15,16 @@ public class Image {
     /**
      * Factory method to ensure every Photo instance holds a valid texture.
      */
-    public static Image create(Bitmap bitmap) {
-        return (bitmap != null) ? new Image(
+    public static Picture create(Bitmap bitmap) {
+        return (bitmap != null) ? new Picture(
                 RendererUtils.createTexture(bitmap), bitmap.getWidth(), bitmap.getHeight()) : null;
     }
 
-    public static Image create(int width, int height) {
-        return new Image(RendererUtils.createTexture(), width, height);
+    public static Picture create(int width, int height) {
+        return new Picture(RendererUtils.createTexture(), width, height);
     }
 
-    public Image(int texture, int width, int height) {
+    public Picture(int texture, int width, int height) {
         this.texture = texture;
         this.width = width;
         this.height = height;
@@ -44,8 +44,8 @@ public class Image {
     	RendererUtils.clearTexture(this.texture);
     	this.texture = texture;
     }
-    public boolean matchDimension(Image Image) {
-        return ((Image.width == width) && (Image.height == height));
+    public boolean matchDimension(Picture picture) {
+        return ((picture.width == width) && (picture.height == height));
     }
 
     public void changeDimension(int width, int height) {
@@ -79,10 +79,10 @@ public class Image {
         this.height = height;
     }
     
-    public void swap(Image image)
+    public void swap(Picture picture)
     {
     	int tmp = texture;
-    	texture = image.texture;
-        image.texture = tmp;
+    	texture = picture.texture;
+        picture.texture = tmp;
     }
 }

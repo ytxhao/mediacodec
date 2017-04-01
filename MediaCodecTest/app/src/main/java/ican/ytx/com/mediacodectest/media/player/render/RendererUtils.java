@@ -1,38 +1,32 @@
 
-package ican.ytx.com.mediacodectest.view;
+package ican.ytx.com.mediacodectest.media.player.render;
 
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.renderscript.Matrix4f;
-import android.util.Log;
+
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.util.Arrays;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGL11;
 
+import ican.ytx.com.mediacodectest.media.player.pragma.YtxLog;
+
 /**
  * Utils for GL renderer.
  */
-public class RendererUtils2 {
+public class RendererUtils {
 
     public static class RenderContext {
         private int shaderProgram;
-        private int gvPositionHandle;
-        private int gCoordHandle;
-        private int yHandle;
-        private int uHandle;
-        private int vHandle;
-
-        private int yTextureId = 1025;
-        private int uTextureId = 1025;
-        private int vTextureId = 1025;
-
-
+        private int texSamplerHandle;
+        private int alphaHandle;
+        private int texCoordHandle;
+        private int posCoordHandle;
         private FloatBuffer texVertices;
         private FloatBuffer posVertices;
         private float alpha = 1f;
@@ -64,25 +58,20 @@ public class RendererUtils2 {
             -1.0f, 1.0f, 1.0f, 1.0f
     };
 
-    private static final String VERTEX_SHADER = "attribute vec4 vPosition;\n"
-            + "attribute vec2 a_texCoord;\n"
-            + "varying vec2 tc;\n"
-            + "void main() {\n" + "gl_Position = vPosition;\n"
-            + "tc = a_texCoord;\n" + "}\n";
+    private static final String VERTEX_SHADER = "attribute vec4 a_position;\n"
+            + "attribute vec2 a_texcoord;\n"
+            + "uniform mat4 u_model_view; \n"
+            + "varying vec2 v_texcoord;\n"
+            + "void main() {\n" + "  gl_Position = u_model_view*a_position;\n"
+            + "  v_texcoord = a_texcoord;\n" + "}\n";
 
     private static final String FRAGMENT_SHADER = "precision mediump float;\n"
-            + "uniform sampler2D tex_y;\n"
-            + "uniform sampler2D tex_u;\n"
-            + "uniform sampler2D tex_v;\n"
-            + "varying vec2 tc;\n"
+            + "uniform sampler2D tex_sampler;\n"
+            + "uniform float alpha;\n"
+            + "varying vec2 v_texcoord;\n"
             + "void main() {\n"
-            + "vec4 c = vec4((texture2D(tex_y, tc).r - 16./255.) * 1.164);\n"
-            + "vec4 U = vec4(texture2D(tex_u, tc).r - 128./255.);\n"
-            + "vec4 V = vec4(texture2D(tex_v, tc).r - 128./255.);\n"
-            + "c += V * vec4(1.596, -0.813, 0, 0);\n"
-            + "c += U * vec4(0, -0.392, 2.017, 0);\n"
-            + "c.a = 1.0;\n"
-            + "gl_FragColor = c;\n"
+            + "vec4 color = texture2D(tex_sampler, v_texcoord);\n"
+            + "gl_FragColor = color;\n"
             + "}\n";
 
     private static final int FLOAT_SIZE_BYTES = 4;
@@ -326,47 +315,13 @@ public class RendererUtils2 {
         context.posVertices = createVerticesBuffer(vertices);
     }
 
-    public static void setAspectRatio(RenderContext context,VideoFrame mVideoFrame, int mScreenWidth, int mScreenHeight){
-
-        float f1 = (float) mScreenHeight / mScreenWidth;
-        float f2 = (float) mVideoFrame.height / mVideoFrame.width;
-        float widthScale = 0.0f;
-        float heightScale = 0.0f;
-
-        if (f1 == f2) {
-
-        } else if (f1 < f2) {
-            widthScale = f1 / f2;
-            POS_VERTICES[0] = -widthScale;
-            POS_VERTICES[1] = -1.0f;
-            POS_VERTICES[2] = widthScale;
-            POS_VERTICES[3] = -1.0f;
-            POS_VERTICES[4] = -widthScale;
-            POS_VERTICES[5] = 1.0f;
-            POS_VERTICES[6] = widthScale;
-            POS_VERTICES[7] = 1.0f;
-
-        } else if (f1 > f2) {
-            heightScale = f2 / f1;
-            POS_VERTICES[0] = -1.0f;
-            POS_VERTICES[1] = -heightScale;
-            POS_VERTICES[2] = 1.0f;
-            POS_VERTICES[3] = -heightScale;
-            POS_VERTICES[4] = -1.0f;
-            POS_VERTICES[5] = heightScale;
-            POS_VERTICES[6] = 1.0f;
-            POS_VERTICES[7] = heightScale;
-        }
-        context.posVertices = createVerticesBuffer(POS_VERTICES);
-
-    }
-
     public static void renderBackground() {
         GLES20.glClearColor(0.10588f, 0.109804f, 0.12157f, 1.0f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
     }
 
-    public static void renderTexture(RenderContext context, VideoFrame mVideoFrame, int mScreenWidth, int mScreenHeight) {
+    public static void renderTexture(RenderContext context, int texture,
+            int viewWidth, int viewHeight) {
         // Use our shader program
         GLES20.glUseProgram(context.shaderProgram);
         if (GLES20.glGetError() != GLES20.GL_NO_ERROR) {
@@ -374,119 +329,43 @@ public class RendererUtils2 {
             checkGlError("createProgram");
         }
 
-        if(mScreenWidth == 0 || mScreenHeight == 0){
-            mScreenWidth = 1080;
-            mScreenHeight = 1920;
-        }
+        // Set viewport
+        GLES20.glViewport(0, 0, viewWidth, viewHeight);
+        checkGlError("glViewport");
 
-        setAspectRatio(context,mVideoFrame,mScreenWidth,mScreenHeight);
-
-        if(context.yTextureId == 1025){
-            context.yTextureId = createTexture();
-            context.uTextureId = createTexture();
-            context.vTextureId = createTexture();
-        }
-
-
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.yTextureId);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
-                GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
-                GLES20.GL_CLAMP_TO_EDGE);
-
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.uTextureId);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
-                GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
-                GLES20.GL_CLAMP_TO_EDGE);
-
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.vTextureId);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
-                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
-                GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
-                GLES20.GL_CLAMP_TO_EDGE);
-
-
+        // Disable blending
+        GLES20.glDisable(GLES20.GL_BLEND);
+        // GLES20.glEnable(GLES20.GL_BLEND);
+        // GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,
+        // GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Set the vertex attributes
-        GLES20.glVertexAttribPointer(context.gvPositionHandle, 2,
-                GLES20.GL_FLOAT, false, 8, context.posVertices);
-        GLES20.glEnableVertexAttribArray(context.gvPositionHandle);
-        GLES20.glVertexAttribPointer(context.gCoordHandle, 2,
-                GLES20.GL_FLOAT, false, 8, context.texVertices);
-        GLES20.glEnableVertexAttribArray(context.gCoordHandle);
+        GLES20.glVertexAttribPointer(context.texCoordHandle, 2,
+                GLES20.GL_FLOAT, false, 0, context.texVertices);
+        GLES20.glEnableVertexAttribArray(context.texCoordHandle);
+        GLES20.glVertexAttribPointer(context.posCoordHandle, 2,
+                GLES20.GL_FLOAT, false, 0, context.posVertices);
+        GLES20.glEnableVertexAttribArray(context.posCoordHandle);
         checkGlError("vertex attribute setup");
 
-
-
-        // bind textures
-//        ByteBuffer bufferY = ByteBuffer.allocate(mVideoFrame.width * mVideoFrame.height);
-//        bufferY.put(mVideoFrame.data,0,mVideoFrame.width * mVideoFrame.height);
-        int lenY = mVideoFrame.width*mVideoFrame.height;
-        int lenU = mVideoFrame.width* mVideoFrame.height/4;
-        int lenV = mVideoFrame.width* mVideoFrame.height/4;
-
-        byte[] byInputBufferU = new byte[lenU];
-        Arrays.fill(byInputBufferU, (byte)0);
-        System.arraycopy(mVideoFrame.data,lenY,byInputBufferU,0,lenU);
-
-
-        byte[] byInputBufferV = new byte[lenV];
-        Arrays.fill(byInputBufferV, (byte)0);
-        System.arraycopy(mVideoFrame.data,lenY+lenU,byInputBufferV,0,lenV);
-
-        byte[] byInputBufferY = new byte[lenY];
-        Arrays.fill(byInputBufferY, (byte)0);
-        System.arraycopy(mVideoFrame.data,0,byInputBufferY,0,lenY);
-        ByteBuffer bufferY = ByteBuffer.wrap(byInputBufferY);
-
+        // Set the input texture
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.yTextureId);
-        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, mVideoFrame.width, mVideoFrame.height, 0, GLES20.GL_LUMINANCE,
-                GLES20.GL_UNSIGNED_BYTE,bufferY);
-        checkGlError("glTexImage2D");
-        GLES20.glUniform1i(context.yHandle, 0);
-
-
-//        Arrays.fill(byInputBufferU, (byte)128);
-//        ByteBuffer bufferU = ByteBuffer.allocate((mVideoFrame.width/2) * (mVideoFrame.height/2));
-
-//        bufferU.put(mVideoFrame.data,mVideoFrame.width * mVideoFrame.height,(mVideoFrame.width/2) * (mVideoFrame.height/2));
-        ByteBuffer bufferU = ByteBuffer.wrap(byInputBufferU);
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.uTextureId);
-        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, mVideoFrame.width / 2, mVideoFrame.height / 2, 0,
-                GLES20.GL_LUMINANCE,
-                GLES20.GL_UNSIGNED_BYTE, bufferU);
-        checkGlError("glTexImage2D");
-        GLES20.glUniform1i(context.uHandle, 1);
-
-
-//        ByteBuffer bufferV = ByteBuffer.allocate((mVideoFrame.width/2) * (mVideoFrame.height/2));
-//        bufferV.put(mVideoFrame.data,mVideoFrame.width * mVideoFrame.height+(mVideoFrame.width/2) * (mVideoFrame.height/2),(mVideoFrame.width/2) * (mVideoFrame.height/2));
-//        ByteBuffer bufferV = ByteBuffer.wrap(mVideoFrame.data);
-        ByteBuffer bufferV = ByteBuffer.wrap(byInputBufferV);
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, context.vTextureId);
-        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, mVideoFrame.width / 2, mVideoFrame.height / 2, 0,
-                GLES20.GL_LUMINANCE,
-                GLES20.GL_UNSIGNED_BYTE, bufferV);
-        checkGlError("glTexImage2D");
-        GLES20.glUniform1i(context.vHandle, 2);
-
-
+        checkGlError("glActiveTexture");
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
+                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
+                GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
+                GLES20.GL_CLAMP_TO_EDGE);
+        checkGlError("glBindTexture");
+        GLES20.glUniform1i(context.texSamplerHandle, 0);
+        GLES20.glUniform1f(context.alphaHandle, context.alpha);
+        GLES20.glUniformMatrix4fv(context.modelViewMatHandle, 1, false, context.mModelViewMat,
+                0);
+        checkGlError("modelViewMatHandle");
         // Draw!
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GLES20.glFinish();
@@ -521,12 +400,15 @@ public class RendererUtils2 {
 
         // Bind attributes and uniforms
         RenderContext context = new RenderContext();
-        context.gvPositionHandle = GLES20.glGetAttribLocation(program, "vPosition");
-        context.gCoordHandle = GLES20.glGetAttribLocation(program, "a_texCoord");
-        context.yHandle = GLES20.glGetUniformLocation(program, "tex_y");
-        context.uHandle = GLES20.glGetUniformLocation(program, "tex_u");
-        context.vHandle = GLES20.glGetUniformLocation(program, "tex_v");
-
+        context.texSamplerHandle = GLES20.glGetUniformLocation(program,
+                "tex_sampler");
+        context.alphaHandle = GLES20.glGetUniformLocation(program, "alpha");
+        context.texCoordHandle = GLES20.glGetAttribLocation(program,
+                "a_texcoord");
+        context.posCoordHandle = GLES20.glGetAttribLocation(program,
+                "a_position");
+        context.modelViewMatHandle = GLES20.glGetUniformLocation(program,
+                "u_model_view");
         context.texVertices = createVerticesBuffer(tex);
         context.posVertices = createVerticesBuffer(vertex);
 
@@ -616,18 +498,18 @@ public class RendererUtils2 {
         int error;
         if ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
             // throw new RuntimeException(op + ": glError " + error);
-            Log.e("RendererUtils", op + ": glError " + getEGLErrorString(error));
+            YtxLog.e("RendererUtils", op + ": glError " + getEGLErrorString(error));
             java.util.Map<Thread, StackTraceElement[]> ts = Thread
                     .getAllStackTraces();
             StackTraceElement[] ste = ts.get(Thread.currentThread());
             for (StackTraceElement s : ste) {
-                Log.e("SS     ", s.toString());
+                YtxLog.e("SS     ", s.toString());
             }
         }
     }
 
     public static void createFrame() {
-        GLES20.glGenFramebuffers(1, RendererUtils2.frame, 0);
+        GLES20.glGenFramebuffers(1, RendererUtils.frame, 0);
         checkGlError("glGenFramebuffers");
     }
 

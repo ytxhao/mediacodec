@@ -1,4 +1,4 @@
-package ican.ytx.com.mediacodectest.view;
+package ican.ytx.com.mediacodectest.media.player.render;
 
 import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;

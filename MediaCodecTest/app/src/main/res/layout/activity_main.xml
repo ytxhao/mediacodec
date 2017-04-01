@@ -5,10 +5,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context="ican.ytx.com.mediacodectest.MainActivity">
+    tools:context="ican.ytx.com.mediacodectest.hybridplayer.MainActivity">
 
-    <ican.ytx.com.mediacodectest.view.VideoGlSurfaceView
-        android:id="@+id/surfaceView"
+    <ican.ytx.com.mediacodectest.media.player.view.YtxVideoView
+        android:id="@+id/ytxVideoView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"

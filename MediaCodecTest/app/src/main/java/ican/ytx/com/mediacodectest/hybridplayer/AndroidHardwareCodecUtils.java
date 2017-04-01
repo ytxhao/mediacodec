@@ -1,4 +1,4 @@
-package ican.ytx.com.mediacodectest;
+package ican.ytx.com.mediacodectest.hybridplayer;
 
 import android.annotation.TargetApi;
 import android.media.MediaCodecInfo;

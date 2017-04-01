@@ -1,10 +1,10 @@
-package ican.ytx.com.mediacodectest;
+package ican.ytx.com.mediacodectest.hybridplayer;
 
-import android.graphics.Picture;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-import ican.ytx.com.mediacodectest.view.VideoGlSurfaceView;
+import ican.ytx.com.mediacodectest.R;
+import ican.ytx.com.mediacodectest.media.player.view.YtxVideoView;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -18,13 +18,15 @@ public class MainActivity extends AppCompatActivity {
             "/storage/emulated/0/test_file/x7_11.mkv",
     };
 
+    YtxVideoView ytxVideoView;
 
-    VideoGlSurfaceView mVideoGlSurfaceView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mVideoGlSurfaceView = (VideoGlSurfaceView) findViewById(R.id.surfaceView);
+        ytxVideoView = (YtxVideoView) findViewById(R.id.ytxVideoView);
+        ytxVideoView.setVideoPath(filePath[0]);
+        ytxVideoView.start();
 
     }
 
@@ -32,6 +34,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        mVideoGlSurfaceView.onResume();
     }
+
 }

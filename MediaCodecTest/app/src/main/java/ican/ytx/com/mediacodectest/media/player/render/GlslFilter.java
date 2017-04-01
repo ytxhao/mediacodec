@@ -1,12 +1,15 @@
 
-package ican.ytx.com.mediacodectest.view;
+package ican.ytx.com.mediacodectest.media.player.render;
 
 import android.content.Context;
 import android.opengl.GLES20;
 
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+
+import ican.ytx.com.mediacodectest.media.player.pragma.YtxLog;
 
 public class GlslFilter extends Filter{
 
@@ -80,7 +83,7 @@ public class GlslFilter extends Filter{
 
     boolean isInitialed = false;
     GlslFilter mNextGlslFilter;
-    Image mMiddlePhoto;
+    Picture mMiddlePhoto;
 
     protected Context mContext;
 
@@ -241,24 +244,24 @@ public class GlslFilter extends Filter{
         }
     }
 
-    public void process(Image in, Image out){
+    public void process(Picture in, Picture out){
         if (mNextGlslFilter == null) {
             processInner(in, out);
         } else {
             if(mMiddlePhoto==null){
-                Image tmp = in;
+                Picture tmp = in;
                 if(tmp==null){
                     tmp = out;
                 }
                 if(tmp!=null)
-                mMiddlePhoto = Image.create(tmp.width(), tmp.height());
+                mMiddlePhoto = Picture.create(tmp.width(), tmp.height());
             }
             processInner(in, mMiddlePhoto);
             mNextGlslFilter.processInner(mMiddlePhoto, out);
         }
     }
 
-    private void processInner(Image in, Image out) {
+    private void processInner(Picture in, Picture out) {
         if (shaderProgram == 0)
             return;
         if (out == null) {
@@ -329,7 +332,8 @@ public class GlslFilter extends Filter{
 
         GLES20.glUniformMatrix4fv(texCoordMatHandle, 1, false, mTextureMat, 0);
         checkGlError("texCoordMatHandle");
-        GLES20.glUniformMatrix4fv(modelViewMatHandle, 1, false, mModelViewMat, 0);
+        GLES20.glUniformMatrix4fv(modelViewMatHandle, 1, false, mModelViewMat,
+                0);
         checkGlError("modelViewMatHandle");
 
         updateParams();
@@ -350,11 +354,15 @@ public class GlslFilter extends Filter{
 
     private static int loadShader(int shaderType, String source) {
         int shader = GLES20.glCreateShader(shaderType);
+        YtxLog.d("yuhaoo","loadShader1 shader="+shader);
         if (shader != 0) {
             GLES20.glShaderSource(shader, source);
+            YtxLog.d("yuhaoo","loadShader2 shader="+shader);
             GLES20.glCompileShader(shader);
+            YtxLog.d("yuhaoo","loadShader3 shader="+shader);
             int[] compiled = new int[1];
             GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0);
+            YtxLog.d("yuhaoo","loadShader4 compiled[0]="+compiled[0]);
             if (compiled[0] == 0) {
                 String info = GLES20.glGetShaderInfoLog(shader);
                 GLES20.glDeleteShader(shader);
