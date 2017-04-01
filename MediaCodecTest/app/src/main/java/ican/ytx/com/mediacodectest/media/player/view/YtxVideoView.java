@@ -3,6 +3,7 @@ package ican.ytx.com.mediacodectest.media.player.view;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -13,6 +14,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
@@ -487,7 +489,11 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 //                addView(mGlSurface);
 //            }
             mMediaPlayer = new HybridMediaPlayer();
-            mMediaPlayer.setSurfaceView(mGlSurface);
+            SurfaceTexture st = mGlSurface.getSurfaceTexture();
+            Surface s = new Surface(st);
+            mMediaPlayer.setSurface(s);
+            s.release();
+
 
 
 

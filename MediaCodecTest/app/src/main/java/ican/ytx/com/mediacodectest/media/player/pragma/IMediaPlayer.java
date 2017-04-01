@@ -193,6 +193,6 @@ public interface IMediaPlayer {
     void setDataSource(IMediaDataSource mediaDataSource);
 
 
-    void setSurfaceView(VideoGlSurfaceView glSurface);
+    //void setSurfaceView(Surface glSurface);
 
 }

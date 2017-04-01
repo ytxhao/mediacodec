@@ -6,6 +6,7 @@
 #define TAG "YTX-PLAYER-JNI"
 
 
+#include <HybridMediaPlayer.h>
 #include "../../include/ALog-priv.h"
 
 //该文件必须包含在源文件中(*.cpp),以免宏展开时提示重复定义的错误
@@ -153,68 +154,137 @@ int64_t HybridMediaPlayer::systemNanoTime() {
     return now.tv_sec * 1000000000LL + now.tv_nsec;
 }
 
-void HybridMediaPlayer::decodeMovie(void *ptr) {
 
+void HybridMediaPlayer::doCodecWork(workerdata *d) {
 
     ssize_t bufidx = -1;
-    while (!data.sawInputEOS || !data.sawOutputEOS) {
-        if (!data.sawInputEOS) {
-            bufidx = AMediaCodec_dequeueInputBuffer(data.codec, 2000);
-            ALOGI("input buffer %zd", bufidx);
-            if (bufidx >= 0) {
-                size_t bufsize;
-                auto buf = AMediaCodec_getInputBuffer(data.codec, bufidx, &bufsize);
-                auto sampleSize = AMediaExtractor_readSampleData(data.ex, buf, bufsize);
-                if (sampleSize < 0) {
-                    sampleSize = 0;
-                    data.sawInputEOS = true;
-                    ALOGI("EOS");
-                }
-                auto presentationTimeUs = AMediaExtractor_getSampleTime(data.ex);
-
-                AMediaCodec_queueInputBuffer(data.codec, bufidx, 0, sampleSize, presentationTimeUs,
-                                             data.sawInputEOS
-                                             ? AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM : 0);
-                AMediaExtractor_advance(data.ex);
+    if (!d->sawInputEOS) {
+        bufidx = AMediaCodec_dequeueInputBuffer(d->codec, 2000);
+        ALOGI("input buffer %zd", bufidx);
+        if (bufidx >= 0) {
+            size_t bufsize;
+            auto buf = AMediaCodec_getInputBuffer(d->codec, bufidx, &bufsize);
+            auto sampleSize = AMediaExtractor_readSampleData(d->ex, buf, bufsize);
+            if (sampleSize < 0) {
+                sampleSize = 0;
+                d->sawInputEOS = true;
+                ALOGI("EOS");
             }
+            auto presentationTimeUs = AMediaExtractor_getSampleTime(d->ex);
+
+            AMediaCodec_queueInputBuffer(d->codec, bufidx, 0, sampleSize, presentationTimeUs,
+                                         d->sawInputEOS ? AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM : 0);
+            AMediaExtractor_advance(d->ex);
         }
-
-        if (!data.sawOutputEOS) {
-            AMediaCodecBufferInfo info;
-            auto status = AMediaCodec_dequeueOutputBuffer(data.codec, &info, 0);
-            if (status >= 0) {
-                if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
-                    ALOGI("output EOS");
-                    data.sawOutputEOS = true;
-                }
-                int64_t presentationNano = info.presentationTimeUs * 1000;
-                if (data.renderstart < 0) {
-                    data.renderstart = systemNanoTime() - presentationNano;
-                }
-                int64_t delay = (data.renderstart + presentationNano) - systemNanoTime();
-                if (delay > 0) {
-                    usleep(delay / 1000);
-                }
-                AMediaCodec_releaseOutputBuffer(data.codec, status, info.size != 0);
-                if (data.renderonce) {
-                    data.renderonce = false;
-                    return;
-                }
-            } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
-                ALOGI("output buffers changed");
-            } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
-                auto format = AMediaCodec_getOutputFormat(data.codec);
-                ALOGI("format changed to: %s", AMediaFormat_toString(format));
-                AMediaFormat_delete(format);
-            } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
-                ALOGI("no output buffer right now");
-            } else {
-                ALOGI("unexpected info code: %zd", status);
-            }
-        }
-
-
     }
+
+    if (!d->sawOutputEOS) {
+        AMediaCodecBufferInfo info;
+        auto status = AMediaCodec_dequeueOutputBuffer(d->codec, &info, 0);
+        if (status >= 0) {
+            ALOGI("output buffers ok");
+            if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+                ALOGI("output EOS");
+                d->sawOutputEOS = true;
+            }
+            int64_t presentationNano = info.presentationTimeUs * 1000;
+            if (d->renderstart < 0) {
+                d->renderstart = systemNanoTime() - presentationNano;
+            }
+            int64_t delay = (d->renderstart + presentationNano) - systemNanoTime();
+            if (delay > 0) {
+                usleep(delay / 1000);
+            }
+            AMediaCodec_releaseOutputBuffer(d->codec, status, info.size != 0);
+            if (d->renderonce) {
+                d->renderonce = false;
+                return;
+            }
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
+            ALOGI("output buffers changed");
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+            auto format = AMediaCodec_getOutputFormat(d->codec);
+            ALOGI("format changed to: %s", AMediaFormat_toString(format));
+            AMediaFormat_delete(format);
+        } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+            ALOGI("no output buffer right now");
+        } else {
+            ALOGI("unexpected info code: %zd", status);
+        }
+    }
+
+//    if (!d->sawInputEOS || !d->sawOutputEOS) {
+//        mlooper->post(kMsgCodecBuffer, d);
+//    }
+}
+
+void HybridMediaPlayer::decodeMovie(void *ptr) {
+
+    while(!data.sawInputEOS || !data.sawOutputEOS){
+        doCodecWork(&data);
+    }
+
+//    ssize_t bufidx = -1;
+//    while (!data.sawInputEOS || !data.sawOutputEOS) {
+//        if (!data.sawInputEOS) {
+//            bufidx = AMediaCodec_dequeueInputBuffer(data.codec, 2000);
+//            ALOGI("input buffer %zd", bufidx);
+//            if (bufidx >= 0) {
+//                size_t bufsize;
+//                auto buf = AMediaCodec_getInputBuffer(data.codec, bufidx, &bufsize);
+//                auto sampleSize = AMediaExtractor_readSampleData(data.ex, buf, bufsize);
+//                if (sampleSize < 0) {
+//                    sampleSize = 0;
+//                    data.sawInputEOS = true;
+//                    ALOGI("EOS");
+//                }
+//                auto presentationTimeUs = AMediaExtractor_getSampleTime(data.ex);
+//
+//                AMediaCodec_queueInputBuffer(data.codec, bufidx, 0, sampleSize, presentationTimeUs,
+//                                             data.sawInputEOS
+//                                             ? AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM : 0);
+//                AMediaExtractor_advance(data.ex);
+//            }
+//        }
+//
+//        if (!data.sawOutputEOS) {
+//            AMediaCodecBufferInfo info;
+//            auto status = AMediaCodec_dequeueOutputBuffer(data.codec, &info, 0);
+//            if (status >= 0) {
+//                ALOGI("output buffers ok");
+//                if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+//                    ALOGI("output EOS");
+//                    data.sawOutputEOS = true;
+//                }
+//                int64_t presentationNano = info.presentationTimeUs * 1000;
+//                if (data.renderstart < 0) {
+//                    data.renderstart = systemNanoTime() - presentationNano;
+//                }
+//                int64_t delay = (data.renderstart + presentationNano) - systemNanoTime();
+//                if (delay > 0) {
+//                    usleep(delay / 1000);
+//                }
+//                AMediaCodec_releaseOutputBuffer(data.codec, status, info.size != 0);
+//                if (data.renderonce) {
+//                    data.renderonce = false;
+//                    return;
+//                }
+//
+//            } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
+//                ALOGI("output buffers changed");
+//            } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+//                auto format = AMediaCodec_getOutputFormat(data.codec);
+//                ALOGI("format changed to: %s", AMediaFormat_toString(format));
+//                AMediaFormat_delete(format);
+//            } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+//                ALOGI("no output buffer right now");
+//            } else {
+//                ALOGI("unexpected info code: %zd", status);
+//            }
+//        }
+//
+//
+//    }
 
 }
 

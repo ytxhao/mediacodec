@@ -57,7 +57,7 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
     public static final int MEDIA_ERROR_OPEN_STREAM_IS_SUBTITLES    = 1;
     public static final int MEDIA_ERROR_OPEN_STREAM_SUBTITLES = 2;
 
-    VideoGlSurfaceView glSurface;
+    Surface glSurface;
     private EventHandler mEventHandler;
 
     private int mNativeContext; // accessed by native methods
@@ -134,13 +134,13 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
             }
         }
     }
-
-    @Override
-    public void setSurfaceView(VideoGlSurfaceView glSurface){
-
-        this.glSurface = glSurface;
-        _setGlSurface(this.glSurface);
-    }
+//
+//    @Override
+//    public void setSurfaceView(VideoGlSurfaceView glSurface){
+//
+//        this.glSurface = glSurface;
+//        _setGlSurface(this.glSurface);
+//    }
 
 
     @Override
@@ -322,6 +322,8 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
 
     @Override
     public void setSurface(Surface surface) {
+        this.glSurface = surface;
+        _setGlSurface(this.glSurface);
 
     }
 

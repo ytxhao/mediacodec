@@ -89,6 +89,7 @@ public:
 
     void checkSeekRequest();
     int64_t systemNanoTime();
+    void doCodecWork(workerdata *d);
     int seekTo(int msec);
 
     int getCurrentPosition();

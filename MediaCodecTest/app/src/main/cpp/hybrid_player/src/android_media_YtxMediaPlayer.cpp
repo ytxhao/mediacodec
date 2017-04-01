@@ -210,9 +210,16 @@ void android_media_player_notifyRenderFrame(jobject obj) {
  * Signature: (Ljava/lang/Object;)V
  */
 JNIEXPORT void JNICALL android_media_player_setGlSurface
-        (JNIEnv *env, jobject obj, jobject mVideoGlSurfaceView) {
+        (JNIEnv *env, jobject obj, jobject mVideoGlSurface) {
 
     HybridMediaPlayer *mPlayer = getMediaPlayer(env, obj);
+    if (mPlayer->data.window) {
+        ANativeWindow_release(mPlayer->data.window);
+        mPlayer->data.window = NULL;
+    }
+    //ANativeWindow_fromSurface(env, mVideoGlSurfaceView);
+    mPlayer->data.window = ANativeWindow_fromSurface(env, mVideoGlSurface);
+   // ALOGI("@@@ setsurface %p", mPlayer->data.window);
 
 }
 
