@@ -523,6 +523,7 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 //            SurfaceTexture st = mGlSurface.getSurfaceTexture();
 //            Surface s = new Surface(st);
             mMediaPlayer.setSurface(s);
+            mMediaPlayer.setSurfaceTexture(mSurfaceTextureId);
             s.release();
 
 

@@ -187,6 +187,8 @@ public interface IMediaPlayer {
      */
     void setSurface(Surface surface);
 
+    void setSurfaceTexture(int texture);
+
     /*--------------------
      * AndroidMediaPlayer: M:
      */

@@ -328,6 +328,11 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
     }
 
     @Override
+    public void setSurfaceTexture(int texture) {
+        _setGlTexture(texture);
+    }
+
+    @Override
     public void setDataSource(IMediaDataSource mediaDataSource) {
 
     }
@@ -447,6 +452,8 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
 
 
     private native void _setGlSurface(Object glSurface);
+
+    private native void _setGlTexture(int glTexture);
 
     private native void _died();
 

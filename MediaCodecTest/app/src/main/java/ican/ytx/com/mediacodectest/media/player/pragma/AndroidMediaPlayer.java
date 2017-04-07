@@ -59,6 +59,11 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
         mInternalMediaPlayer.setSurface(surface);
     }
 
+    @Override
+    public void setSurfaceTexture(int texture) {
+
+    }
+
 //    @Override
 //    public void setSurfaceView(VideoGlSurfaceView glSurface) {
 //

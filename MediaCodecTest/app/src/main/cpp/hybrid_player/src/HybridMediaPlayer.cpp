@@ -42,6 +42,10 @@ long long HybridMediaPlayer::getFileSize(int fd)
     return buf.st_size;
 }
 
+void HybridMediaPlayer::setTexture(int texture){
+    this->texture = texture;
+
+}
 int HybridMediaPlayer::setDataSource(const char *url) {
 
     long long outStart, outLen;

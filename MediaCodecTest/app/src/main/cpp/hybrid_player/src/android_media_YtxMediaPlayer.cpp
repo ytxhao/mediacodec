@@ -223,7 +223,12 @@ JNIEXPORT void JNICALL android_media_player_setGlSurface
 
 }
 
+JNIEXPORT void JNICALL android_media_player_setGlTexture
+        (JNIEnv *env, jobject obj, jint texture){
+    HybridMediaPlayer *mPlayer = getMediaPlayer(env, obj);
 
+    mPlayer->setTexture(texture);
+}
 
 
 /*
@@ -602,6 +607,7 @@ static JNINativeMethod gMethods[] = {
         {"native_finalize",        "()V",                                      (void *) android_media_player_native_finalize},
         {"native_message_loop",    "(Ljava/lang/Object;)V",                    (void *) android_media_player_native_message_loop},
         {"_setGlSurface",          "(Ljava/lang/Object;)V",                    (void *) android_media_player_setGlSurface},
+        {"_setGlTexture",          "(I)V",                                     (void *) android_media_player_setGlTexture},
         {"_died",                  "()V",                                      (void *) android_media_player_died},
         {"_setSubtitles",          "(Ljava/lang/String;)I",                    (void *) android_media_player_setSubtitles},
         {"_setDataSource",         "(Ljava/lang/String;)I",                    (void *) android_media_player_setDataSource},

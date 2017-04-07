@@ -101,6 +101,8 @@ public:
     int setDataSource(const char *url);
     long long getFileSize(int fd);
 
+    void setTexture(int texture);
+
     int setDataSource(int fd, int64_t offset, int64_t length);
 
     int setListener(MediaPlayerListener* listener);
@@ -235,6 +237,7 @@ public:
      EGLContext eglCtx;
      EGLDisplay eglDisp;
 
+    int texture;
 };
 
 
