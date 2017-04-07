@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
+import android.opengl.GLES11Ext;
+import android.opengl.GLES20;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
@@ -33,6 +35,7 @@ import ican.ytx.com.mediacodectest.media.player.pragma.IMediaPlayer;
 import ican.ytx.com.mediacodectest.media.player.pragma.YtxLog;
 import ican.ytx.com.mediacodectest.media.player.pragma.HybridMediaPlayer;
 import ican.ytx.com.mediacodectest.media.player.render.GraphicGLSurfaceView;
+import ican.ytx.com.mediacodectest.media.player.render.RendererUtils;
 import ican.ytx.com.mediacodectest.media.player.render.VideoGlSurfaceView;
 
 
@@ -488,9 +491,37 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 //                //removeAllViews();
 //                addView(mGlSurface);
 //            }
+
+            int mSurfaceTextureId = RendererUtils.createTexture();
+
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
+            RendererUtils.checkGlError("glBindTexture mTextureID");
+            GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_MIN_FILTER,
+                    GLES20.GL_NEAREST);
+            GLES20.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_MAG_FILTER,
+                    GLES20.GL_LINEAR);
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,
+                    GLES20.GL_CLAMP_TO_EDGE);
+            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,
+                    GLES20.GL_CLAMP_TO_EDGE);
+
+            RendererUtils.checkGlError("surfaceCreated");
+
+            SurfaceTexture mSurfaceTexture = new SurfaceTexture(mSurfaceTextureId);
+
+            mSurfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                @Override
+                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                        YtxLog.d(TAG,"output buffers ok onFrameAvailable");
+                }
+            });
+
+            Surface s = new Surface(mSurfaceTexture);
             mMediaPlayer = new HybridMediaPlayer();
-            SurfaceTexture st = mGlSurface.getSurfaceTexture();
-            Surface s = new Surface(st);
+//            SurfaceTexture st = mGlSurface.getSurfaceTexture();
+//            Surface s = new Surface(st);
             mMediaPlayer.setSurface(s);
             s.release();
 

@@ -17,8 +17,10 @@
 #include <fstream>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include "MediaPlayerListener.h"
-
+#include <png.h>
 // ----------------------------------------------------------------------------
 // for native window JNI
 #include "media/NdkMediaCodec.h"
@@ -39,6 +41,47 @@ typedef struct {
     bool renderonce;
 } workerdata;
 
+
+typedef struct image_s {
+    int width, height, stride;
+    unsigned char *buffer;      // RGB24
+} image_t;
+
+
+
+//14byte文件头
+typedef struct
+{
+    char cfType[2];//文件类型，"BM"(0x4D42)
+    long cfSize;//文件大小（字节）
+    long cfReserved;//保留，值为0
+    long cfoffBits;//数据区相对于文件头的偏移量（字节）
+}__attribute__((packed)) BITMAPFILEHEADER;
+//__attribute__((packed))的作用是告诉编译器取消结构在编译过程中的优化对齐
+
+//40byte信息头
+typedef struct
+{
+    char ciSize[4];//BITMAPFILEHEADER所占的字节数
+    long ciWidth;//宽度
+    long ciHeight;//高度
+    char ciPlanes[2];//目标设备的位平面数，值为1
+    int ciBitCount;//每个像素的位数
+    char ciCompress[4];//压缩说明
+    char ciSizeImage[4];//用字节表示的图像大小，该数据必须是4的倍数
+    char ciXPelsPerMeter[4];//目标设备的水平像素数/米
+    char ciYPelsPerMeter[4];//目标设备的垂直像素数/米
+    char ciClrUsed[4]; //位图使用调色板的颜色数
+    char ciClrImportant[4]; //指定重要的颜色数，当该域的值等于颜色数时（或者等于0时），表示所有颜色都一样重要
+}__attribute__((packed)) BITMAPINFOHEADER;
+
+typedef struct
+{
+    unsigned short blue;
+    unsigned short green;
+    unsigned short red;
+    unsigned short reserved;
+}__attribute__((packed)) PIXEL;//颜色模式RGB
 
 class HybridMediaPlayer {
 
@@ -69,9 +112,11 @@ public:
     int start();
 
     static void* startPlayer(void* ptr);
+    static void* startGLThread(void* ptr);
     static void* prepareAsyncPlayer(void* ptr);
 
-
+    void write_png(char *fname, image_t *img);
+    image_t *gen_image(int width, int height);
     void packetEnoughWait();
     int stop();
 
@@ -128,6 +173,13 @@ public:
     int isFinish;
 
     void decodeMovie(void* ptr);
+    void runGLThread(void* ptr);
+    void initEGL();
+    void deInitEGL();
+    void drawGL();
+    bool getExitPendingGL();
+    void setExitPendingGL(bool exitPending);
+    bool mExitPending;
     void clear_l();
 
     int seekTo_l(int msec);
@@ -174,7 +226,14 @@ public:
 
     workerdata data = {-1, NULL, NULL, NULL, 0, false, false, false, false};
     pthread_t					mPlayerThread;
+    pthread_t					mGLThread;
     pthread_t					mPlayerPrepareAsyncThread;
+
+
+     EGLConfig eglConf;
+     EGLSurface eglSurface;
+     EGLContext eglCtx;
+     EGLDisplay eglDisp;
 
 };
 

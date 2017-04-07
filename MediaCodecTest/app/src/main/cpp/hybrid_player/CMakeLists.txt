@@ -9,8 +9,26 @@ add_library(native-ytx-lib SHARED
             src/android_media_YtxMediaPlayer.cpp
             )
 
+
+set(LINK_DIR "${Project_SOURCE_DIR}/../jniLibs/armeabi-v7a")
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
+add_library( png-lib
+             SHARED
+             IMPORTED )
+
+set_target_properties( # Specifies the target library.
+                       png-lib
+
+                       # Specifies the parameter you want to define.
+                       PROPERTIES IMPORTED_LOCATION
+
+                       # Provides the path to the library you want to import.
+                       ${LINK_DIR}/libpng16.so )
+
 # Include libraries needed for native-codec-jni lib
 target_link_libraries(native-ytx-lib
+                      png-lib
                       android
                       log
                       mediandk
