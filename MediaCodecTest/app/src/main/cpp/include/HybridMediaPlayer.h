@@ -21,6 +21,7 @@
 #include <EGL/eglext.h>
 #include "MediaPlayerListener.h"
 #include <png.h>
+#include "GlslFilter.h"
 // ----------------------------------------------------------------------------
 // for native window JNI
 #include "media/NdkMediaCodec.h"
@@ -178,7 +179,8 @@ public:
     void runGLThread(void* ptr);
     void initEGL();
     void deInitEGL();
-    void drawGL();
+    void drawGL(GlslFilter *filter);
+    void drawGL1();
     bool getExitPendingGL();
     void setExitPendingGL(bool exitPending);
     bool mExitPending;
@@ -238,6 +240,14 @@ public:
      EGLDisplay eglDisp;
 
     int texture;
+    GlslFilter *glslFilter=NULL;
+    Picture *mPicture;
+    Picture *mTexturePicture;
+
+    int mVideoWidth;
+    int mVideoHeight;
+
+    jobject mTextureSurfaceObj;
 };
 
 

@@ -18,6 +18,7 @@ import java.lang.ref.WeakReference;
 import java.util.Map;
 
 import ican.ytx.com.mediacodectest.media.player.misc.ITrackInfo;
+import ican.ytx.com.mediacodectest.media.player.render.MSurfaceTexture;
 import ican.ytx.com.mediacodectest.media.player.render.VideoGlSurfaceView;
 
 public class AndroidMediaPlayer extends AbstractMediaPlayer {
@@ -60,7 +61,7 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
     }
 
     @Override
-    public void setSurfaceTexture(int texture) {
+    public void setSurfaceTexture(int texture,MSurfaceTexture mSurfaceTexture) {
 
     }
 

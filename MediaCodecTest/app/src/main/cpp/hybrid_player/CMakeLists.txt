@@ -7,6 +7,7 @@ add_library(native-ytx-lib SHARED
             src/lock.cpp
             src/HybridMediaPlayer.cpp
             src/android_media_YtxMediaPlayer.cpp
+            src/GlslFilter.cpp
             )
 
 

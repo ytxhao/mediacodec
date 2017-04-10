@@ -7,6 +7,8 @@
 
 
 #include <HybridMediaPlayer.h>
+#include <GlslFilter.h>
+#include <android_media_YtxMediaPlayer.h>
 #include "../../include/ALog-priv.h"
 
 //该文件必须包含在源文件中(*.cpp),以免宏展开时提示重复定义的错误
@@ -17,6 +19,8 @@
 
 HybridMediaPlayer::HybridMediaPlayer() {
     mExitPending = false;
+    mPicture = NULL;
+    mTexturePicture = NULL;
 }
 
 HybridMediaPlayer::~HybridMediaPlayer() {
@@ -151,6 +155,7 @@ void *HybridMediaPlayer::startPlayer(void *ptr) {
 
 void *HybridMediaPlayer::startGLThread(void *ptr) {
 
+    sleep(1);
     HybridMediaPlayer *mPlayer = (HybridMediaPlayer *) ptr;
 
     mPlayer->runGLThread(ptr);
@@ -199,6 +204,10 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
                 ALOGI("output EOS");
                 d->sawOutputEOS = true;
             }
+
+            AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
+            AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_WIDTH,&mVideoWidth);
+            AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,&mVideoHeight);
             int64_t presentationNano = info.presentationTimeUs * 1000;
             if (d->renderstart < 0) {
                 d->renderstart = systemNanoTime() - presentationNano;
@@ -207,6 +216,7 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
             if (delay > 0) {
                 usleep(delay / 1000);
             }
+
             AMediaCodec_releaseOutputBuffer(d->codec, status, info.size != 0);
             if (d->renderonce) {
                 d->renderonce = false;
@@ -238,7 +248,38 @@ void HybridMediaPlayer::decodeMovie(void *ptr) {
 
 }
 
-void HybridMediaPlayer::drawGL() {
+void HybridMediaPlayer::drawGL(GlslFilter *filter) {
+
+//    if(filter->textureOut == 1025){
+//        filter->textureOut = filter->createTexture();
+//    }
+    android_media_player_updateSurface(mTextureSurfaceObj);
+
+    if(mPicture == NULL){
+        mPicture = new Picture();
+        mPicture->texture = filter->createTexture();
+        mPicture->width = mVideoWidth;
+        mPicture->height = mVideoHeight;
+    }
+
+    if(mTexturePicture == NULL){
+        mTexturePicture = new Picture();
+        mTexturePicture->texture = (GLuint) texture;
+        mTexturePicture->width = mVideoWidth;
+        mTexturePicture->height = mVideoHeight;
+    }
+
+    filter->process(mTexturePicture,NULL);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES,0,6);
+//    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+//    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    eglSwapBuffers(eglDisp,eglSurface);
+
+}
+
+void HybridMediaPlayer::drawGL1() {
 
     const char vertex_shader_fix[]=
             "attribute vec4 a_Position;\n"
@@ -335,37 +376,50 @@ void Snapshot(GLvoid * pData, int width, int height,  char * filename ,long size
 }
 
 void HybridMediaPlayer::runGLThread(void *ptr) {
-
-    initEGL();
-
     unsigned char *RGBABuffer = (unsigned char *) malloc(512 * 512 * 4);
     unsigned char *RGBBuffer = (unsigned char *) malloc(512 * 512 * 3);
     memset(RGBABuffer,9,512 * 512* 4);
     memset(RGBBuffer,9,512 * 512* 3);
 
+    initEGL();
+
+    glslFilter = new GlslFilter();
+    glslFilter->initial();
+
+    int times = 0;
     while (!getExitPendingGL()){
+        times++;
+        glslFilter->renderBackground();
 
-        drawGL();
+        //drawGL1();
+        drawGL(glslFilter);
 
-        glReadPixels(0, 0, 512, 512,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
+        ALOGI("runGLThread mVideoWidth=%d mVideoHeight=%d",mVideoWidth,mVideoHeight);
+        glReadPixels(0, 0, mVideoWidth, mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
 
 
         int strideRGBA=4;
         int strideRGB=3;
-        for(int i=0;i<512*512;i++){
+        int len = mVideoWidth*mVideoHeight;
+        for(int i=0;i<len;i++){
             RGBBuffer[i*strideRGB]=RGBABuffer[i*strideRGBA+2];
             RGBBuffer[i*strideRGB+1]=RGBABuffer[i*strideRGBA];
             RGBBuffer[i*strideRGB+2]=RGBABuffer[i*strideRGBA+1];
         }
 
+        char file[1025]={0};
 
-        Snapshot(RGBBuffer, 512, 512,  "/storage/emulated/0/egl7.bmp" ,512 * 512* 3);
+        sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
+        Snapshot(RGBBuffer, mVideoWidth, mVideoHeight,  file ,mVideoWidth * mVideoHeight* 3);
 
 //        image_t *imageFrame = gen_image(512,512);
 //        imageFrame->buffer = RGBABuffer;
 //        write_png("/storage/emulated/0/egl.png",imageFrame);
      //   Snapshot("/storage/emulated/0/egl.png",0,0,512,512);
-        setExitPendingGL(true);
+        if(times == 25){
+            setExitPendingGL(true);
+        }
+
     }
 
     deInitEGL();
@@ -427,7 +481,8 @@ void HybridMediaPlayer::initEGL() {
     }
     // create a pixelbuffer surface
     eglSurface = eglCreatePbufferSurface(eglDisp, eglConf, surfaceAttr);
-   // eglSurface = eglCreateWindowSurface(eglDisp, eglConf, data.window, surfaceAttr);
+    //EGLNativeWindowType window = android_createDisplaySurface();
+    //eglSurface = eglCreateWindowSurface(eglDisp, eglConf, NULL, surfaceAttr);
     if(eglSurface == EGL_NO_SURFACE)
     {
         switch(eglGetError())

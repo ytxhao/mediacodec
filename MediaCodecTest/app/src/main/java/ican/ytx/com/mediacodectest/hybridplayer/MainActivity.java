@@ -16,6 +16,7 @@ public class MainActivity extends AppCompatActivity {
             "/storage/emulated/0/titanic.mkv",
             "/storage/emulated/0/video2.mp4",
             "/storage/emulated/0/gqfc07.ts",
+            "/storage/emulated/0/testfile.mp4",
             "/storage/emulated/0/test_file/x7_11.mkv",
     };
 
@@ -30,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.bt).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ytxVideoView.setVideoPath(filePath[0]);
+                ytxVideoView.setVideoPath(filePath[3]);
                 ytxVideoView.start();
             }
         });

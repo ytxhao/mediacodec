@@ -17,6 +17,7 @@ import java.util.Map;
 
 import ican.ytx.com.mediacodectest.media.player.misc.IMediaDataSource;
 import ican.ytx.com.mediacodectest.media.player.misc.ITrackInfo;
+import ican.ytx.com.mediacodectest.media.player.render.MSurfaceTexture;
 import ican.ytx.com.mediacodectest.media.player.render.VideoGlSurfaceView;
 
 /**
@@ -328,8 +329,8 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
     }
 
     @Override
-    public void setSurfaceTexture(int texture) {
-        _setGlTexture(texture);
+    public void setSurfaceTexture(int texture,MSurfaceTexture mSurfaceTexture) {
+        _setGlTexture(texture,mSurfaceTexture);
     }
 
     @Override
@@ -453,7 +454,7 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
 
     private native void _setGlSurface(Object glSurface);
 
-    private native void _setGlTexture(int glTexture);
+    private native void _setGlTexture(int glTexture,Object mSurfaceTexture);
 
     private native void _died();
 

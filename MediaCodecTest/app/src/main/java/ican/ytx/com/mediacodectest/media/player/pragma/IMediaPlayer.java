@@ -14,6 +14,7 @@ import java.util.Map;
 
 import ican.ytx.com.mediacodectest.media.player.misc.IMediaDataSource;
 import ican.ytx.com.mediacodectest.media.player.misc.ITrackInfo;
+import ican.ytx.com.mediacodectest.media.player.render.MSurfaceTexture;
 import ican.ytx.com.mediacodectest.media.player.render.VideoGlSurfaceView;
 
 /**
@@ -187,7 +188,7 @@ public interface IMediaPlayer {
      */
     void setSurface(Surface surface);
 
-    void setSurfaceTexture(int texture);
+    void setSurfaceTexture(int texture, MSurfaceTexture mSurfaceTexture);
 
     /*--------------------
      * AndroidMediaPlayer: M:

@@ -17,6 +17,7 @@ extern "C" {
 #endif
 
 void android_media_player_notifyRenderFrame(jobject obj);
+void android_media_player_updateSurface(jobject obj);
 
 JNIEnv* getJNIEnv();
 
@@ -33,7 +34,7 @@ JNIEXPORT void JNICALL android_media_player_setGlSurface
 
 
 JNIEXPORT void JNICALL android_media_player_setGlTexture
-(JNIEnv *, jobject, jint);
+(JNIEnv *, jobject, jint,jobject);
 
 /*
  * Class:     com_ytx_ican_media_player_YtxMediaPlayer

@@ -35,6 +35,7 @@ import ican.ytx.com.mediacodectest.media.player.pragma.IMediaPlayer;
 import ican.ytx.com.mediacodectest.media.player.pragma.YtxLog;
 import ican.ytx.com.mediacodectest.media.player.pragma.HybridMediaPlayer;
 import ican.ytx.com.mediacodectest.media.player.render.GraphicGLSurfaceView;
+import ican.ytx.com.mediacodectest.media.player.render.MSurfaceTexture;
 import ican.ytx.com.mediacodectest.media.player.render.RendererUtils;
 import ican.ytx.com.mediacodectest.media.player.render.VideoGlSurfaceView;
 
@@ -509,21 +510,17 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 
             RendererUtils.checkGlError("surfaceCreated");
 
-            SurfaceTexture mSurfaceTexture = new SurfaceTexture(mSurfaceTextureId);
+            MSurfaceTexture mSurfaceTexture = new MSurfaceTexture(mSurfaceTextureId);
 
-            mSurfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
-                @Override
-                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                        YtxLog.d(TAG,"output buffers ok onFrameAvailable");
-                }
-            });
+            mSurfaceTexture.setOnFrameAvailableListener(mSurfaceTexture);
+
 
             Surface s = new Surface(mSurfaceTexture);
             mMediaPlayer = new HybridMediaPlayer();
 //            SurfaceTexture st = mGlSurface.getSurfaceTexture();
 //            Surface s = new Surface(st);
             mMediaPlayer.setSurface(s);
-            mMediaPlayer.setSurfaceTexture(mSurfaceTextureId);
+            mMediaPlayer.setSurfaceTexture(mSurfaceTextureId,mSurfaceTexture);
             s.release();
 
 
