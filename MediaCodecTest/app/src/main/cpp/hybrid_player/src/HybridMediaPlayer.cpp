@@ -250,9 +250,6 @@ void HybridMediaPlayer::decodeMovie(void *ptr) {
 
 void HybridMediaPlayer::drawGL(GlslFilter *filter) {
 
-//    if(filter->textureOut == 1025){
-//        filter->textureOut = filter->createTexture();
-//    }
     android_media_player_updateSurface(mTextureSurfaceObj);
 
     if(mPicture == NULL){
@@ -270,12 +267,6 @@ void HybridMediaPlayer::drawGL(GlslFilter *filter) {
     }
 
     filter->process(mTexturePicture,NULL);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES,0,6);
-//    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-//    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    eglSwapBuffers(eglDisp,eglSurface);
 
 }
 
@@ -416,7 +407,7 @@ void HybridMediaPlayer::runGLThread(void *ptr) {
 //        imageFrame->buffer = RGBABuffer;
 //        write_png("/storage/emulated/0/egl.png",imageFrame);
      //   Snapshot("/storage/emulated/0/egl.png",0,0,512,512);
-        if(times == 25){
+        if(times == 10){
             setExitPendingGL(true);
         }
 

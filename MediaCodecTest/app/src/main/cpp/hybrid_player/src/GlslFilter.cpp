@@ -11,13 +11,10 @@
 static const char gVertexShader[]=
         "attribute vec4 a_position;\n"
         "attribute vec2 a_texcoord;\n"
-        "uniform mat4 u_texture_mat;\n"
-        "uniform mat4 u_model_view;\n"
         "varying vec2 textureCoordinate;\n"
                 "void main() {\n"
-                "  gl_Position = u_model_view*a_position;\n"
-                "  vec4 tmp = u_texture_mat*vec4(a_texcoord.x,a_texcoord.y,0.0,1.0);\n"
-                "  textureCoordinate = tmp.xy;\n"
+                "  gl_Position = a_position;\n"
+                "  textureCoordinate = a_texcoord;\n"
                 "}\n";
 
 static const char gFragmentShader[]=
@@ -150,8 +147,8 @@ GLuint GlslFilter::createProgram(const char *pVertexSource, const char *pFragmen
     texSamplerHandle = glGetUniformLocation(shaderProgram, "inputImageTexture");
     texCoordHandle = glGetAttribLocation(shaderProgram, "a_texcoord");
     posCoordHandle = glGetAttribLocation(shaderProgram, "a_position");
-    texCoordMatHandle = glGetUniformLocation(shaderProgram, "u_texture_mat");
-    modelViewMatHandle = glGetUniformLocation(shaderProgram, "u_model_view");
+//    texCoordMatHandle = glGetUniformLocation(shaderProgram, "u_texture_mat");
+//    modelViewMatHandle = glGetUniformLocation(shaderProgram, "u_model_view");
 
 
  //   texVertices = createVerticesBuffer(TEX_VERTICES_SURFACE_TEXTURE);
@@ -206,11 +203,11 @@ void GlslFilter::process(Picture *in, Picture *out) {
     glDisable(GL_BLEND);
 
 
-    glVertexAttribPointer(texCoordHandle, 2, GL_FLOAT, false,
-            0, texVertices);
+    glVertexAttribPointer(texCoordHandle, 2, GL_FLOAT, GL_FALSE,
+                          8, texVertices);
     glEnableVertexAttribArray(texCoordHandle);
-    glVertexAttribPointer(posCoordHandle, 3, GL_FLOAT, false,
-            0, posVertices);
+    glVertexAttribPointer(posCoordHandle, 2, GL_FLOAT, GL_FALSE,
+            8, posVertices);
     glEnableVertexAttribArray(posCoordHandle);
     checkGlError("vertex attribute setup");
 
@@ -233,16 +230,14 @@ void GlslFilter::process(Picture *in, Picture *out) {
     }
 
 
-    glUniformMatrix4fv(texCoordMatHandle, 1, GL_FALSE, mTextureMat);
-    checkGlError("texCoordMatHandle");
-    glUniformMatrix4fv(modelViewMatHandle, 1, GL_FALSE, mModelViewMat);
-    checkGlError("modelViewMatHandle");
+//    glUniformMatrix4fv(texCoordMatHandle, 1, GL_FALSE, mTextureMat);
+//    checkGlError("texCoordMatHandle");
+//    glUniformMatrix4fv(modelViewMatHandle, 1, GL_FALSE, mModelViewMat);
+//    checkGlError("modelViewMatHandle");
 
-//    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-//
-//    checkGlError("glDrawArrays");
-//
-//    glFinish();
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    checkGlError("glDrawArrays");
+    glFinish();
 
 
     if (out != NULL) {

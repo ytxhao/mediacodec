@@ -69,11 +69,11 @@ public:
     GLuint frameBufferObjectId = 0;//创建一个帧缓冲区对象
 
 
-    int texSamplerHandle;
-    int texCoordHandle;
-    int posCoordHandle;
-    int texCoordMatHandle;
-    int modelViewMatHandle;
+    GLint texSamplerHandle;
+    GLint texCoordHandle;
+    GLint posCoordHandle;
+ //   GLuint texCoordMatHandle;
+ //   GLuint modelViewMatHandle;
 
     //GLuint textureOut;
 
@@ -91,14 +91,14 @@ public:
             1.0f, 0.0f,
     };
 
-    GLfloat mTextureMat[16] = {
-            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-            1
-    };
-    GLfloat mModelViewMat[16] = {
-            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0,
-            0, 1
-    };
+//    GLfloat mTextureMat[16] = {
+//            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+//            1
+//    };
+//    GLfloat mModelViewMat[16] = {
+//            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0,
+//            0, 1
+//    };
 
 };
 
