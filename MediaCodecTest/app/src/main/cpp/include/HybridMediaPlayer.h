@@ -83,7 +83,6 @@ public:
     int start();
 
     static void* startPlayer(void* ptr);
-    static void* startGLThread(void* ptr);
     static void* prepareAsyncPlayer(void* ptr);
 
     void write_png(char *fname, image_t *img);
@@ -145,14 +144,7 @@ public:
     int isFinish;
 
     void decodeMovie(void* ptr);
-    void runGLThread(void* ptr);
-    void initEGL();
-    void deInitEGL();
-    void drawGL(GlslFilter *filter);
-    void drawGL1();
-    bool getExitPendingGL();
-    void setExitPendingGL(bool exitPending);
-    bool mExitPending;
+
     void clear_l();
 
     int seekTo_l(int msec);
@@ -199,20 +191,7 @@ public:
 
     workerdata data = {-1, NULL, NULL, NULL, 0, false, false, false, false};
     pthread_t					mPlayerThread;
-   // pthread_t					mGLThread;
     pthread_t					mPlayerPrepareAsyncThread;
-
-
-     EGLConfig eglConf;
-     EGLSurface eglSurface;
-     EGLContext eglCtx;
-     EGLDisplay eglDisp;
-
-    int texture;
-    GlslFilter *glslFilter=NULL;
-    Picture *mPicture;
-    Picture *mTexturePicture;
-
 
 
 
