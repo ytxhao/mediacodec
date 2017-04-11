@@ -65,6 +65,11 @@ public class AndroidMediaPlayer extends AbstractMediaPlayer {
 
     }
 
+    @Override
+    public void requestRenderer() {
+
+    }
+
 //    @Override
 //    public void setSurfaceView(VideoGlSurfaceView glSurface) {
 //

@@ -492,7 +492,7 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 //                //removeAllViews();
 //                addView(mGlSurface);
 //            }
-
+            mMediaPlayer = new HybridMediaPlayer();
             int mSurfaceTextureId = RendererUtils.createTexture();
 
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mSurfaceTextureId);
@@ -510,19 +510,18 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 
             RendererUtils.checkGlError("surfaceCreated");
 
-            MSurfaceTexture mSurfaceTexture = new MSurfaceTexture(mSurfaceTextureId);
+            MSurfaceTexture mSurfaceTexture = new MSurfaceTexture(mSurfaceTextureId,mMediaPlayer);
 
             mSurfaceTexture.setOnFrameAvailableListener(mSurfaceTexture);
 
 
             Surface s = new Surface(mSurfaceTexture);
-            mMediaPlayer = new HybridMediaPlayer();
+
 //            SurfaceTexture st = mGlSurface.getSurfaceTexture();
 //            Surface s = new Surface(st);
             mMediaPlayer.setSurface(s);
             mMediaPlayer.setSurfaceTexture(mSurfaceTextureId,mSurfaceTexture);
             s.release();
-
 
 
 

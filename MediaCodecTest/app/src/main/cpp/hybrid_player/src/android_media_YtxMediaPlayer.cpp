@@ -228,7 +228,7 @@ JNIEXPORT void JNICALL android_media_player_setGlTexture
     HybridMediaPlayer *mPlayer = getMediaPlayer(env, obj);
     mPlayer->setTexture(texture);
 
-    mPlayer->mTextureSurfaceObj = env->NewGlobalRef(mTextureSurface);
+    mPlayer->mVideoStateInfo->mTextureSurfaceObj = env->NewGlobalRef(mTextureSurface);
 }
 
 
@@ -253,6 +253,14 @@ JNIEXPORT void JNICALL android_media_player_died
         (JNIEnv *env, jobject obj) {
 
 }
+
+JNIEXPORT void JNICALL android_media_player_native_requestRenderer
+        (JNIEnv *env, jobject obj) {
+
+    HybridMediaPlayer *mPlayer = getMediaPlayer(env, obj);
+    mPlayer->rendererTexture();
+}
+
 
 /*
  * Class:     com_ytx_ican_media_player_YtxMediaPlayer
@@ -619,6 +627,7 @@ static JNINativeMethod gMethods[] = {
         {"native_setup",           "(Ljava/lang/Object;)V",                    (void *) android_media_player_native_setup},
         {"native_finalize",        "()V",                                      (void *) android_media_player_native_finalize},
         {"native_message_loop",    "(Ljava/lang/Object;)V",                    (void *) android_media_player_native_message_loop},
+        {"_requestRenderer",       "()V",                                      (void *) android_media_player_native_requestRenderer},
         {"_setGlSurface",          "(Ljava/lang/Object;)V",                    (void *) android_media_player_setGlSurface},
         {"_setGlTexture",          "(ILjava/lang/Object;)V",                   (void *) android_media_player_setGlTexture},
         {"_died",                  "()V",                                      (void *) android_media_player_died},

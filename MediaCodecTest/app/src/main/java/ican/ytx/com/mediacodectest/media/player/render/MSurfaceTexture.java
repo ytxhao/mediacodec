@@ -2,6 +2,7 @@ package ican.ytx.com.mediacodectest.media.player.render;
 
 import android.graphics.SurfaceTexture;
 
+import ican.ytx.com.mediacodectest.media.player.pragma.IMediaPlayer;
 import ican.ytx.com.mediacodectest.media.player.pragma.YtxLog;
 
 /**
@@ -12,9 +13,11 @@ public class MSurfaceTexture extends SurfaceTexture implements SurfaceTexture.On
 
     private static final String TAG = "MSurfaceTexture";
     volatile boolean updateSurface = false;
+    private IMediaPlayer mMediaPlayer;
 
-    public MSurfaceTexture(int texName) {
+    public MSurfaceTexture(int texName,IMediaPlayer mMediaPlayer) {
         super(texName);
+        this.mMediaPlayer = mMediaPlayer;
     }
 
     public MSurfaceTexture(int texName, boolean singleBufferMode) {
@@ -24,19 +27,24 @@ public class MSurfaceTexture extends SurfaceTexture implements SurfaceTexture.On
 
     @Override
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        YtxLog.d(TAG,"onFrameAvailable for test");
         updateSurface = true;
-        YtxLog.d(TAG,"onFrameAvailable");
+        requestRenderer();
     }
 
 
     public void updateSurfaceNative(){
-        YtxLog.d(TAG,"updateSurfaceNative");
+        YtxLog.d(TAG,"updateSurfaceNative for test");
         synchronized (this) {
             if (updateSurface) {
                 updateTexImage();
                 updateSurface = false;
             }
         }
+    }
+
+    private void requestRenderer(){
+        mMediaPlayer.requestRenderer();
     }
 
 }

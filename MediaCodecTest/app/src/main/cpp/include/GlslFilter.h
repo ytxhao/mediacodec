@@ -62,7 +62,7 @@ public:
 
     const char *getFragmentShaderString();
 
-    bool isInitialed = true;
+    bool isInitialed = false;
     GLuint vertexShader;
     GLuint pixelShader;
     GLuint shaderProgram;

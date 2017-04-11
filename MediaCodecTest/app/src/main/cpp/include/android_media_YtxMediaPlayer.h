@@ -44,6 +44,9 @@ JNIEXPORT void JNICALL android_media_player_setGlTexture
 JNIEXPORT void JNICALL android_media_player_died
         (JNIEnv *, jobject);
 
+JNIEXPORT void JNICALL android_media_player_native_requestRenderer
+        (JNIEnv *, jobject );
+
 /*
  * Class:     com_ytx_ican_media_player_YtxMediaPlayer
  * Method:    disconnect

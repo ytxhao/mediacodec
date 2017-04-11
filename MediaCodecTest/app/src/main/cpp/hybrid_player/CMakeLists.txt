@@ -8,6 +8,10 @@ add_library(native-ytx-lib SHARED
             src/HybridMediaPlayer.cpp
             src/android_media_YtxMediaPlayer.cpp
             src/GlslFilter.cpp
+            src/MessageQueue.cpp
+            src/VideoStateInfo.cpp
+            src/Thread.cpp
+            src/GLThread.cpp
             )
 
 

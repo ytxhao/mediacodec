@@ -21,6 +21,8 @@ HybridMediaPlayer::HybridMediaPlayer() {
     mExitPending = false;
     mPicture = NULL;
     mTexturePicture = NULL;
+    mVideoStateInfo = new VideoStateInfo();
+    mGLThread = new GLThread(mVideoStateInfo);
 }
 
 HybridMediaPlayer::~HybridMediaPlayer() {
@@ -48,6 +50,7 @@ long long HybridMediaPlayer::getFileSize(int fd)
 
 void HybridMediaPlayer::setTexture(int texture){
     this->texture = texture;
+    mGLThread->texture = texture;
 
 }
 int HybridMediaPlayer::setDataSource(const char *url) {
@@ -139,8 +142,12 @@ int HybridMediaPlayer::resume() {
 int HybridMediaPlayer::start() {
 
     ALOGI("HybridMediaPlayer start\n");
-    pthread_create(&mGLThread, NULL, startGLThread, this);
+   // pthread_create(&mGLThread, NULL, startGLThread, this);
+
+
+
     pthread_create(&mPlayerThread, NULL, startPlayer, this);
+    mGLThread->startAsync();
     return 0;
 }
 
@@ -205,9 +212,16 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
                 d->sawOutputEOS = true;
             }
 
-            AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
-            AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_WIDTH,&mVideoWidth);
-            AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,&mVideoHeight);
+            if(mVideoStateInfo->mVideoWidth == 0 || mVideoStateInfo->mVideoHeight == 0){
+                AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
+                AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_WIDTH,&mVideoStateInfo->mVideoWidth);
+                AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,&mVideoStateInfo->mVideoHeight);
+                AVMessage msg;
+                msg.what = GL_MSG_DECODED_FIRST_FRAME;
+                mVideoStateInfo->messageQueueGL->put(&msg);
+                ALOGI("msg.what = GL_MSG_DECODED_FIRST_FRAME for test");
+            }
+
             int64_t presentationNano = info.presentationTimeUs * 1000;
             if (d->renderstart < 0) {
                 d->renderstart = systemNanoTime() - presentationNano;
@@ -250,20 +264,20 @@ void HybridMediaPlayer::decodeMovie(void *ptr) {
 
 void HybridMediaPlayer::drawGL(GlslFilter *filter) {
 
-    android_media_player_updateSurface(mTextureSurfaceObj);
+    android_media_player_updateSurface(mVideoStateInfo->mTextureSurfaceObj);
 
     if(mPicture == NULL){
         mPicture = new Picture();
         mPicture->texture = filter->createTexture();
-        mPicture->width = mVideoWidth;
-        mPicture->height = mVideoHeight;
+        mPicture->width = mVideoStateInfo->mVideoWidth;
+        mPicture->height = mVideoStateInfo->mVideoHeight;
     }
 
     if(mTexturePicture == NULL){
         mTexturePicture = new Picture();
         mTexturePicture->texture = (GLuint) texture;
-        mTexturePicture->width = mVideoWidth;
-        mTexturePicture->height = mVideoHeight;
+        mTexturePicture->width = mVideoStateInfo->mVideoWidth;
+        mTexturePicture->height = mVideoStateInfo->mVideoHeight;
     }
 
     filter->process(mTexturePicture,NULL);
@@ -405,17 +419,19 @@ void SnapshotBmpRGBA(GLvoid * pData, int width, int height,  char * filename)
 }
 
 void HybridMediaPlayer::runGLThread(void *ptr) {
-    ALOGI("runGLThread mVideoWidth=%d mVideoHeight=%d",mVideoWidth,mVideoHeight);
-    unsigned char *RGBABuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 4);
-    unsigned char *BGRABuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 4);
-    unsigned char *RGBBuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 3);
-    unsigned char *BGRBuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 3);
+    ALOGI("runGLThread mVideoWidth=%d mVideoHeight=%d",mVideoStateInfo->mVideoWidth,mVideoStateInfo->mVideoHeight);
 
-    memset(RGBABuffer,0,mVideoWidth * mVideoHeight* 4);
-    memset(RGBBuffer,0,mVideoWidth * mVideoHeight* 3);
+    int picture_size = mVideoStateInfo->mVideoWidth*mVideoStateInfo->mVideoHeight;
+    unsigned char *RGBABuffer = (unsigned char *) malloc(picture_size * 4);
+    unsigned char *BGRABuffer = (unsigned char *) malloc(picture_size * 4);
+    unsigned char *RGBBuffer = (unsigned char *) malloc(picture_size * 3);
+    unsigned char *BGRBuffer = (unsigned char *) malloc(picture_size * 3);
 
-    memset(BGRABuffer,0,mVideoWidth * mVideoHeight* 4);
-    memset(BGRBuffer,0,mVideoWidth * mVideoHeight* 3);
+    memset(RGBABuffer,0,picture_size* 4);
+    memset(RGBBuffer,0,picture_size* 3);
+
+    memset(BGRABuffer,0,picture_size* 4);
+    memset(BGRBuffer,0,picture_size* 3);
 
     const int BMP_ROW_ALIGN = 4;
 
@@ -435,21 +451,21 @@ void HybridMediaPlayer::runGLThread(void *ptr) {
         drawGL(glslFilter);
 
         glPixelStorei(GL_PACK_ALIGNMENT, BMP_ROW_ALIGN);
-        glReadPixels(0, 0, mVideoWidth, mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
+        glReadPixels(0, 0, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
 
 
         int strideRGBA=4;
         int strideBGR=3;
-        int len = mVideoWidth*mVideoHeight;
+       // int len = mVideoWidth*mVideoHeight;
 
-        for(int i=0;i<len;i++){
+        for(int i=0;i<picture_size;i++){
             BGRBuffer[i*strideBGR]=RGBABuffer[i*strideRGBA+2]; //B
             BGRBuffer[i*strideBGR+1]=RGBABuffer[i*strideRGBA+1]; //R
             BGRBuffer[i*strideBGR+2]=RGBABuffer[i*strideRGBA]; //G
 
         }
 
-        for(int i=0;i<len;i++){
+        for(int i=0;i<picture_size;i++){
             BGRABuffer[i*strideRGBA]=RGBABuffer[i*strideRGBA+3];
             BGRABuffer[i*strideRGBA+1]=RGBABuffer[i*strideRGBA];
             BGRABuffer[i*strideRGBA+2]=RGBABuffer[i*strideRGBA+1];
@@ -459,7 +475,7 @@ void HybridMediaPlayer::runGLThread(void *ptr) {
 
         char file[1025]={0};
         sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
-        SnapshotBmpRGB(BGRBuffer, mVideoWidth, mVideoHeight, file);
+        SnapshotBmpRGB(BGRBuffer, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight, file);
        // SnapshotBmpRGBA(BGRABuffer, mVideoWidth, mVideoHeight, file);
 
 //        image_t *imageFrame = gen_image(512,512);
@@ -787,4 +803,14 @@ void HybridMediaPlayer::finish() {
     // mVideoStateInfo->mMessageLoop->stop();
     isFinish = 1;
     ALOGI("HybridMediaPlayer::finish OUT");
+}
+
+void HybridMediaPlayer::rendererTexture(){
+
+    ALOGI("HybridMediaPlayer::rendererTexture");
+    AVMessage msg;
+    msg.what = GL_MSG_RENDERER;
+    mVideoStateInfo->messageQueueGL->put(&msg);
+
+
 }

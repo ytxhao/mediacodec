@@ -338,6 +338,11 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
 
     }
 
+    @Override
+    public void requestRenderer() {
+        _requestRenderer();
+    }
+
 
     private static class EventHandler extends Handler {
         private final WeakReference<HybridMediaPlayer> mWeakPlayer;
@@ -456,6 +461,8 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
 
     private native void _setGlTexture(int glTexture,Object mSurfaceTexture);
 
+    private native void _requestRenderer();
+
     private native void _died();
 
 
@@ -520,5 +527,7 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
     private native int  _getDuration_l() ;
 
     private native int  _reset_l() ;
+
+
 
 }
