@@ -332,17 +332,19 @@ void HybridMediaPlayer::setExitPendingGL(bool exitPending) {
     mExitPending = exitPending;
 }
 
-void Snapshot(GLvoid * pData, int width, int height,  char * filename ,long size)
+void SnapshotBmpRGB(GLvoid *pData, int width, int height, char *filename)
 {
 
     BITMAPFILEHEADER fileHead={0};
     BITMAPINFOHEADER infoHead={0};
+    int biBitCount = 24;
+    long dataSize = (width*biBitCount+31)/32*4*height;
     FILE *fp =  fopen(filename, "wb");
 
     // 位图第一部分，文件信息
     fileHead.cfType[0] = 0x42;
     fileHead.cfType[1] = 0x4d;
-    fileHead.cfSize = size + 54;
+    fileHead.cfSize = dataSize + 54;
     fileHead.cfReserved = 0;
     fileHead.cfoffBits = 54;
     // 位图第二部分，数据信息
@@ -361,16 +363,62 @@ void Snapshot(GLvoid * pData, int width, int height,  char * filename ,long size
 
     fwrite(&fileHead,1, sizeof(BITMAPFILEHEADER),fp);
     fwrite(&infoHead,1, sizeof(BITMAPINFOHEADER),fp);
-    fwrite(pData,1,size,fp);
+    fwrite(pData,1,dataSize,fp);
+    fclose(fp);
+
+}
+
+void SnapshotBmpRGBA(GLvoid * pData, int width, int height,  char * filename)
+{
+
+    BITMAPFILEHEADER fileHead={0};
+    BITMAPINFOHEADER infoHead={0};
+    int biBitCount = 32;
+    long dataSize = (width*biBitCount+31)/32*4*height;
+    FILE *fp =  fopen(filename, "wb");
+
+    // 位图第一部分，文件信息
+    fileHead.cfType[0] = 0x42;
+    fileHead.cfType[1] = 0x4d;
+    fileHead.cfSize = dataSize + 54;
+    fileHead.cfReserved = 0;
+    fileHead.cfoffBits = 54;
+    // 位图第二部分，数据信息
+
+    infoHead.ciSize[0] = 40;
+    infoHead.ciWidth = width;
+    infoHead.ciHeight = height;
+    infoHead.ciPlanes[0] = 1;
+    infoHead.ciBitCount = biBitCount;
+    infoHead.ciCompress[3] = 0;
+    infoHead.ciSizeImage[3] = 0;
+    infoHead.ciXPelsPerMeter[3] = 0;
+    infoHead.ciYPelsPerMeter[3] = 0;
+    infoHead.ciClrUsed[3] = 0;
+    infoHead.ciClrImportant[3] = 0;
+
+    fwrite(&fileHead,1, sizeof(BITMAPFILEHEADER),fp);
+    fwrite(&infoHead,1, sizeof(BITMAPINFOHEADER),fp);
+    fwrite(pData,1,dataSize,fp);
     fclose(fp);
 
 }
 
 void HybridMediaPlayer::runGLThread(void *ptr) {
-    unsigned char *RGBABuffer = (unsigned char *) malloc(512 * 512 * 4);
-    unsigned char *RGBBuffer = (unsigned char *) malloc(512 * 512 * 3);
-    memset(RGBABuffer,9,512 * 512* 4);
-    memset(RGBBuffer,9,512 * 512* 3);
+    ALOGI("runGLThread mVideoWidth=%d mVideoHeight=%d",mVideoWidth,mVideoHeight);
+    unsigned char *RGBABuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 4);
+    unsigned char *BGRABuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 4);
+    unsigned char *RGBBuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 3);
+    unsigned char *BGRBuffer = (unsigned char *) malloc(mVideoWidth * mVideoHeight * 3);
+
+    memset(RGBABuffer,0,mVideoWidth * mVideoHeight* 4);
+    memset(RGBBuffer,0,mVideoWidth * mVideoHeight* 3);
+
+    memset(BGRABuffer,0,mVideoWidth * mVideoHeight* 4);
+    memset(BGRBuffer,0,mVideoWidth * mVideoHeight* 3);
+
+    const int BMP_ROW_ALIGN = 4;
+
 
     initEGL();
 
@@ -383,31 +431,41 @@ void HybridMediaPlayer::runGLThread(void *ptr) {
         glslFilter->renderBackground();
 
         //drawGL1();
+
         drawGL(glslFilter);
 
-        ALOGI("runGLThread mVideoWidth=%d mVideoHeight=%d",mVideoWidth,mVideoHeight);
+        glPixelStorei(GL_PACK_ALIGNMENT, BMP_ROW_ALIGN);
         glReadPixels(0, 0, mVideoWidth, mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
 
 
         int strideRGBA=4;
-        int strideRGB=3;
+        int strideBGR=3;
         int len = mVideoWidth*mVideoHeight;
+
         for(int i=0;i<len;i++){
-            RGBBuffer[i*strideRGB]=RGBABuffer[i*strideRGBA+2];
-            RGBBuffer[i*strideRGB+1]=RGBABuffer[i*strideRGBA];
-            RGBBuffer[i*strideRGB+2]=RGBABuffer[i*strideRGBA+1];
+            BGRBuffer[i*strideBGR]=RGBABuffer[i*strideRGBA+2]; //B
+            BGRBuffer[i*strideBGR+1]=RGBABuffer[i*strideRGBA+1]; //R
+            BGRBuffer[i*strideBGR+2]=RGBABuffer[i*strideRGBA]; //G
+
         }
 
-        char file[1025]={0};
+        for(int i=0;i<len;i++){
+            BGRABuffer[i*strideRGBA]=RGBABuffer[i*strideRGBA+3];
+            BGRABuffer[i*strideRGBA+1]=RGBABuffer[i*strideRGBA];
+            BGRABuffer[i*strideRGBA+2]=RGBABuffer[i*strideRGBA+1];
+            BGRABuffer[i*strideRGBA+3]=RGBABuffer[i*strideRGBA+2];
+        }
 
+
+        char file[1025]={0};
         sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
-        Snapshot(RGBBuffer, mVideoWidth, mVideoHeight,  file ,mVideoWidth * mVideoHeight* 3);
+        SnapshotBmpRGB(BGRBuffer, mVideoWidth, mVideoHeight, file);
+       // SnapshotBmpRGBA(BGRABuffer, mVideoWidth, mVideoHeight, file);
 
 //        image_t *imageFrame = gen_image(512,512);
 //        imageFrame->buffer = RGBABuffer;
 //        write_png("/storage/emulated/0/egl.png",imageFrame);
-     //   Snapshot("/storage/emulated/0/egl.png",0,0,512,512);
-        if(times == 10){
+        if(times == 5){
             setExitPendingGL(true);
         }
 
