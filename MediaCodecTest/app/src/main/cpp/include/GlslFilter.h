@@ -85,10 +85,11 @@ public:
     };
 
     GLfloat texVertices[8] = {
-            0.0f, 1.0f,
-            1.0f, 1.0f,
-            0.0f, 0.0f,
-            1.0f, 0.0f,
+            0.0f, 1 - 1.0f,
+            1.0f, 1 - 1.0f,
+            0.0f, 1 - 0.0f,
+            1.0f, 1 - 0.0f,
+
     };
 
 //    GLfloat mTextureMat[16] = {
