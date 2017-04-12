@@ -16,19 +16,36 @@
 #define JNIREG_RENDERER_CLASS "ican/ytx/com/mediacodectest/media/player/render/GraphicRenderer"
 
 
+static const char gVertexShader[] =
+        "attribute vec4 vPosition;\n"
+                "attribute vec2 a_texCoord;\n"
+                "varying vec2 tc;\n"
+                "void main() {\n"
+                "gl_Position = vPosition;\n"
+                "tc = a_texCoord;\n"
+                "}\n";
+
+static const char gFragmentShader[] =
+        "precision mediump float;\n"
+                "uniform sampler2D tex_rgba;\n"
+                "varying vec2 tc;\n"
+                "void main() {\n"
+                "gl_FragColor = texture2D(tex_rgba, tc);\n"
+                "}\n";
+
 static JavaVM *sVm;
 
 GlEngine::GlEngine() {
     yTextureId = 1025;
     uTextureId = 1025;
     vTextureId = 1025;
-    pngTextureId = 1025;
+    rgbaTextureId = 1025;
 
     gProgram = 0;
     yHandle = -1;
     uHandle = -1;
     vHandle = -1;
-    pngHandle = -1;
+    rgbaHandle = -1;
 
     videoWidth = 0;
     videoHeight = 0;
@@ -49,6 +66,8 @@ GlEngine::GlEngine() {
 
     glEngine = NULL;
     isInitComplete = false;
+
+    pixels = NULL;
 
 }
 
@@ -195,29 +214,11 @@ bool GlEngine::setupGraphics() {
     checkGlError("glGetAttribLocation");
     gCoordHandle = (GLuint) ret;
 
-    /*
-     * get uniform location for y/u/v, we pass data through these uniforms
-     */
-
-    yHandle = glGetUniformLocation(gProgram, "tex_y");
-    checkGlError("glGetUniformLocation tex_y");
-    ALOGI("GLProgram yHandle = %d\n", yHandle);
-
-    if (yHandle == -1) {
-        ALOGE("Could not get uniform location for tex_y");
-    }
-    uHandle = glGetUniformLocation(gProgram, "tex_u");
-    checkGlError("glGetUniformLocation tex_u");
-    ALOGI("GLProgram uHandle = %d\n", uHandle);
-
-    if (uHandle == -1) {
-        ALOGE("Could not get uniform location for tex_u");
-    }
-    vHandle = glGetUniformLocation(gProgram, "tex_v");
-    checkGlError("glGetUniformLocation tex_v");
-    ALOGI("GLProgram vHandle = %d\n", vHandle);
-    if (vHandle == -1) {
-        ALOGE("Could not get uniform location for tex_v");
+    rgbaHandle = glGetUniformLocation(gProgram, "tex_rgba");
+    checkGlError("glGetUniformLocation rgbaHandle");
+    ALOGI("GLProgram rgbaHandle = %d\n", rgbaHandle);
+    if (rgbaHandle == -1) {
+        ALOGE("Could not get uniform location for rgbaHandle");
     }
 
     glUseProgram(gProgram);
@@ -234,91 +235,21 @@ void GlEngine::setVideoWidthAndHeight(int videoWidth, int videoHeight) {
 
 void GlEngine::buildTextures() {
 
-    if (yTextureId == 1025) {
-        glGenTextures(1, &yTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
+    if (rgbaTextureId == 1025) {
+        glGenTextures(1, &rgbaTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
         checkGlError("glGenTextures");
-        ALOGI("buildTextures yTextureId=%d\n", yTextureId);
-
+        ALOGI("buildTextures rgbaTextureId=%d\n", rgbaTextureId);
     } else {
-        glDeleteTextures(1, &yTextureId);
+        glDeleteTextures(1, &rgbaTextureId);
         checkGlError("glDeleteTextures");
-        glGenTextures(1, &yTextureId);
+
+        glGenTextures(1, &rgbaTextureId);
         checkGlError("glGenTextures");
-    }
-
-    glBindTexture(GL_TEXTURE_2D, yTextureId);
-    checkGlError("glBindTexture");
-
-    //  设置纹理参数,缩小过滤,邻近像素差值(临近像素插值。该方法质量较差)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //设置纹理参数,放大过滤,线性插值(线性插值。使用距离当前渲染像素中心最近的4个纹素加权平均值)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-
-    // building texture for U data
-
-    if (uTextureId == 1025) {
-        glGenTextures(1, &uTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures uTextureId=%d\n", uTextureId);
-    } else {
-        glDeleteTextures(1, &uTextureId);
-        checkGlError("glDeleteTextures");
-        glGenTextures(1, &uTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures uTextureId=%d\n", uTextureId);
+        ALOGI("buildTextures rgbaTextureId=%d\n", rgbaTextureId);
     }
 
 
-    glBindTexture(GL_TEXTURE_2D, uTextureId);
-    checkGlError("glBindTexture");
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-
-    if (vTextureId == 1025) {
-        glGenTextures(1, &vTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures vTextureId=%d\n", vTextureId);
-    } else {
-        glDeleteTextures(1, &vTextureId);
-        checkGlError("glDeleteTextures");
-
-        glGenTextures(1, &vTextureId);
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures vTextureId=%d\n", vTextureId);
-    }
-
-
-    glBindTexture(GL_TEXTURE_2D, vTextureId);
-    checkGlError("glBindTexture");
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-
-    if (pngTextureId == 1025) {
-        glGenTextures(1, &pngTextureId);  //参数1:用来生成纹理的数量. 参数2:存储纹理索引的第一个元素指针
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures pngTextureId=%d\n", pngTextureId);
-    } else {
-        glDeleteTextures(1, &pngTextureId);
-        checkGlError("glDeleteTextures");
-
-        glGenTextures(1, &pngTextureId);
-        checkGlError("glGenTextures");
-        ALOGI("buildTextures pngTextureId=%d\n", pngTextureId);
-    }
-
-
-    glBindTexture(GL_TEXTURE_2D, pngTextureId);
+    glBindTexture(GL_TEXTURE_2D, rgbaTextureId);
     checkGlError("glBindTexture");
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -342,8 +273,7 @@ void GlEngine::drawFrameInit(int videoWidth, int videoHeight) {
  */
 void GlEngine::drawFrame() {
     mLock.lock();
-    if (plane[0] != NULL && plane[1] != NULL && plane[2] != NULL && videoWidth != 0 &&
-        videoHeight != 0) {
+    if (pixels != NULL && videoWidth != 0 && videoHeight != 0) {
 
         setAspectRatio();
 
@@ -359,28 +289,12 @@ void GlEngine::drawFrame() {
         glEnableVertexAttribArray(gCoordHandle);
 
         // bind textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, yTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, videoWidth, videoHeight, 0, GL_LUMINANCE,
-                     GL_UNSIGNED_BYTE, plane[0]);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, rgbaTextureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, videoWidth, videoHeight, 0,
+                     GL_RGB, GL_UNSIGNED_BYTE, pixels);
         checkGlError("glTexImage2D");
-        glUniform1i(yHandle, 0);
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, uTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, videoWidth / 2, videoHeight / 2, 0,
-                     GL_LUMINANCE,
-                     GL_UNSIGNED_BYTE, plane[1]);
-        checkGlError("glTexImage2D");
-        glUniform1i(uHandle, 1);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, vTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, videoWidth / 2, videoHeight / 2, 0,
-                     GL_LUMINANCE,
-                     GL_UNSIGNED_BYTE, plane[2]);
-        checkGlError("glTexImage2D");
-        glUniform1i(vHandle, 2);
+        glUniform1i(rgbaHandle, 3);
 
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -422,6 +336,17 @@ void GlEngine::addRendererFrame(char *y, char *u, char *v, int videoWidth,
     memcpy(plane[2], v, (size_t) (videoWidth * videoHeight) / 4);
     mLock.unlock();
 }
+
+
+void GlEngine::addRendererFrameRGBA(void *pixels, int videoWidth, int videoHeight) {
+
+    mLock.lock();
+    addRendererFrameInitRGBA(videoWidth,videoHeight);
+
+    memcpy(this->pixels, pixels, (size_t) (videoWidth * videoHeight * 4));
+    mLock.unlock();
+}
+
 
 
 /**
@@ -471,6 +396,24 @@ void GlEngine::addRendererFrameInit(int videoWidth, int videoHeight) {
         }
 
     }
+}
+
+void GlEngine::addRendererFrameInitRGBA(int videoWidth, int videoHeight) {
+    if ((this->videoWidth == 0 && this->videoHeight == 0)
+        || (this->videoWidth != videoWidth || this->videoHeight != videoHeight)){
+        this->videoWidth = videoWidth;
+        this->videoHeight = videoHeight;
+
+        if(pixels == NULL){
+            pixels = malloc(sizeof(char) * videoWidth * videoHeight * 4);
+        }else{
+            void *pixels_tmp;
+            pixels_tmp = pixels;
+            pixels = malloc(sizeof(char) * videoWidth * videoHeight * 4);
+            free(pixels_tmp);
+        }
+    }
+
 }
 
 void GlEngine::setAspectRatio() {
@@ -567,6 +510,17 @@ void addRendererVideoFrame(jobject obj, char *y, char *u, char *v, int videoWidt
 
 }
 
+void addRendererVideoFrameRGBA(jobject obj, void *pixels, int videoWidth,
+                               int videoHeight){
+
+    JNIEnv *env = NULL;
+    sVm->AttachCurrentThread(&env, NULL);
+
+    getGlEngine(env, obj)->addRendererFrameRGBA(pixels, videoWidth, videoHeight);
+
+    sVm->DetachCurrentThread();
+
+}
 
 void resetRendererVideoFrame(jobject obj) {
 
@@ -641,9 +595,9 @@ JNIEXPORT void JNICALL android_media_player_GraphicRenderer_native_step_opengl
 JNIEXPORT void JNICALL android_media_player_GraphicRenderer_native_create_opengl
         (JNIEnv *env, jobject obj) {
 
-    ALOGI("native_1init_1opengl IN");
+    ALOGI("native_create_opengl IN");
     getGlEngine(env, obj)->setupGraphics();
-    ALOGI("native_1init_1opengl OUT");
+    ALOGI("native_create_opengl OUT");
 
 }
 

@@ -203,6 +203,21 @@ void android_media_player_notifyRenderFrame(jobject obj) {
 
 }
 
+JNIEXPORT void JNICALL android_media_player_setGlSurfaceView
+        (JNIEnv *env, jobject obj, jobject mVideoGlSurfaceView){
+
+    HybridMediaPlayer *mPlayer = getMediaPlayer(env, obj);
+    mPlayer->mVideoStateInfo->VideoGlSurfaceViewObj = env->NewGlobalRef(mVideoGlSurfaceView);
+
+    jclass jclazz = env->GetObjectClass(mVideoGlSurfaceView);
+
+    jmethodID jmtdId = env->GetMethodID(jclazz, "getRenderer",
+                                        "()Lican/ytx/com/mediacodectest/media/player/render/GraphicRenderer;");
+    jobject GraphicRendererObj = env->CallObjectMethod(mVideoGlSurfaceView, jmtdId);
+
+    mPlayer->mVideoStateInfo->GraphicRendererObj = env->NewGlobalRef(GraphicRendererObj);
+
+}
 
 /*
  * Class:     com_ytx_ican_media_player_YtxMediaPlayer
@@ -630,6 +645,7 @@ static JNINativeMethod gMethods[] = {
         {"_requestRenderer",       "()V",                                      (void *) android_media_player_native_requestRenderer},
         {"_setGlSurface",          "(Ljava/lang/Object;)V",                    (void *) android_media_player_setGlSurface},
         {"_setGlTexture",          "(ILjava/lang/Object;)V",                   (void *) android_media_player_setGlTexture},
+        {"_setGlSurfaceView",      "(Ljava/lang/Object;)V",                    (void *) android_media_player_setGlSurfaceView},
         {"_died",                  "()V",                                      (void *) android_media_player_died},
         {"_setSubtitles",          "(Ljava/lang/String;)I",                    (void *) android_media_player_setSubtitles},
         {"_setDataSource",         "(Ljava/lang/String;)I",                    (void *) android_media_player_setDataSource},

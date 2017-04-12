@@ -72,7 +72,6 @@ public class GraphicGLSurfaceView extends GLSurfaceView {
         getHolder().addCallback(this);
         renderer = new GraphicRenderer();
         setRenderer(renderer);
-        renderer.setGLSurfaceView(this);
         setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
 
@@ -123,7 +122,6 @@ public class GraphicGLSurfaceView extends GLSurfaceView {
     @Override
     public void onResume() {
         super.onResume();
-        renderer.onResume();
         mIsResume = true;
         YtxLog.d(TAG,"onResume  isInitial="+isInitial);
     }
@@ -132,7 +130,6 @@ public class GraphicGLSurfaceView extends GLSurfaceView {
     @Override
     public void onPause() {
         super.onPause();
-        renderer.onPause();
         mIsResume = false;
     }
 
@@ -233,7 +230,4 @@ public class GraphicGLSurfaceView extends GLSurfaceView {
         }
     }
 
-    public SurfaceTexture getSurfaceTexture() {
-        return renderer.getSurfaceTexture();
-    }
 }

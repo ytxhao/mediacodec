@@ -197,6 +197,7 @@ public:
 
     VideoStateInfo *mVideoStateInfo;
 
+
     GLThread *mGLThread;
 };
 

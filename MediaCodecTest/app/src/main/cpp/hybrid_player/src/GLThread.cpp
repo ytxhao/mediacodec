@@ -7,6 +7,7 @@
 #include <GlslFilter.h>
 #include <android_media_YtxMediaPlayer.h>
 #include "GLThread.h"
+#include "../../gl_engine/include/gl_engine.h"
 
 
 GLThread::GLThread(VideoStateInfo *mVideoStateInfo) {
@@ -53,10 +54,10 @@ bool GLThread::process(AVMessage *msg) {
         case GL_MSG_RENDERER:
             drawGL(glslFilter);
 
-            if(times < 5){
+           // if(times < 5){
                 saveBmp();
-            }
-            times++;
+            //}
+            //times++;
             break;
         case GL_MSG_DECODED_FIRST_FRAME:
 
@@ -177,22 +178,19 @@ void GLThread::saveBmp(){
 
     }
 
-    for(int i=0;i<picture_size;i++){
-        BGRABuffer[i*strideRGBA]=RGBABuffer[i*strideRGBA+3];
-        BGRABuffer[i*strideRGBA+1]=RGBABuffer[i*strideRGBA];
-        BGRABuffer[i*strideRGBA+2]=RGBABuffer[i*strideRGBA+1];
-        BGRABuffer[i*strideRGBA+3]=RGBABuffer[i*strideRGBA+2];
-    }
+//    char file[1025]={0};
+//    sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
+//    SnapshotBmpRGB(BGRBuffer, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight, file);
 
 
-    char file[1025]={0};
-    sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
-    SnapshotBmpRGB(BGRBuffer, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight, file);
-    // SnapshotBmpRGBA(BGRABuffer, mVideoWidth, mVideoHeight, file);
 
-//        image_t *imageFrame = gen_image(512,512);
-//        imageFrame->buffer = RGBABuffer;
-//        write_png("/storage/emulated/0/egl.png",imageFrame);
+    addRendererVideoFrameRGBA(mVideoStateInfo->GraphicRendererObj,
+                              RGBABuffer,
+                              mVideoStateInfo->mVideoWidth,
+                              mVideoStateInfo->mVideoWidth);
+
+    android_media_player_notifyRenderFrame(mVideoStateInfo->VideoGlSurfaceViewObj);
+
 }
 
 void GLThread::initEGL() {

@@ -23,5 +23,7 @@ public:
     MessageQueue *messageQueueGL;
 
     jobject mTextureSurfaceObj;
+    jobject VideoGlSurfaceViewObj;
+    jobject GraphicRendererObj;
 };
 #endif //YTXPLAYER_VIDEOSTATEINFO_H

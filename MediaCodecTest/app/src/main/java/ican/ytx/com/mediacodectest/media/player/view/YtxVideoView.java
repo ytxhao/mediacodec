@@ -3,7 +3,6 @@ package ican.ytx.com.mediacodectest.media.player.view;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Configuration;
-import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
@@ -78,7 +77,7 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 
     private IMediaController mMediaController;
     private IMediaPlayer mMediaPlayer = null;
-    public VideoGlSurfaceView mGlSurface = null;
+    public VideoGlSurfaceView mGlSurfaceView = null;
     private int mCurrentState = STATE_IDLE;
     private int mTargetState  = STATE_IDLE;
 
@@ -165,17 +164,17 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
     }
 
     private void initSurface(Context context) {
-        mGlSurface = new VideoGlSurfaceView(context);
+        mGlSurfaceView = new VideoGlSurfaceView(context);
 
-        mGlSurface.setOnTouchListener(this);
-        mGlSurface.setOnScreenWindowChangedListener(this);
+        mGlSurfaceView.setOnTouchListener(this);
+        mGlSurfaceView.setOnScreenWindowChangedListener(this);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER);
-        mGlSurface.setLayoutParams(lp);
-        addView(mGlSurface);
-        mGlSurface.setSurfaceCallback(mSurfaceCallback);
+        mGlSurfaceView.setLayoutParams(lp);
+        addView(mGlSurfaceView);
+        mGlSurfaceView.setSurfaceCallback(mSurfaceCallback);
         WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
         DisplayMetrics outMetrics = new DisplayMetrics();
         wm.getDefaultDisplay().getMetrics(outMetrics);
@@ -488,9 +487,9 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 //        AudioManager am = (AudioManager) mAppContext.getSystemService(Context.AUDIO_SERVICE);
 //        am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
 
-//            if(mGlSurface != null){
+//            if(mGlSurfaceView != null){
 //                //removeAllViews();
-//                addView(mGlSurface);
+//                addView(mGlSurfaceView);
 //            }
             mMediaPlayer = new HybridMediaPlayer();
             int mSurfaceTextureId = RendererUtils.createTexture();
@@ -517,10 +516,9 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 
             Surface s = new Surface(mSurfaceTexture);
 
-//            SurfaceTexture st = mGlSurface.getSurfaceTexture();
-//            Surface s = new Surface(st);
             mMediaPlayer.setSurface(s);
             mMediaPlayer.setSurfaceTexture(mSurfaceTextureId,mSurfaceTexture);
+            mMediaPlayer.setGlSurfaceView(mGlSurfaceView);
             s.release();
 
 
@@ -532,7 +530,7 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
         //set player listener
 
 
-       // mMediaPlayer.setSurfaceView(mGlSurface);
+       // mMediaPlayer.setSurfaceView(mGlSurfaceView);
 
         mMediaPlayer.setOnPreparedListener(mPreparedListener);
         mMediaPlayer.setOnVideoSizeChangedListener(mSizeChangedListener);
@@ -878,15 +876,15 @@ public class YtxVideoView extends FrameLayout implements MediaController.MediaPl
 
     public void onResume(){
         start();
-        if(mGlSurface != null){
-            mGlSurface.onResume();
+        if(mGlSurfaceView != null){
+            mGlSurfaceView.onResume();
         }
     }
 
     public void onPause(){
         pause();
-        if(mGlSurface != null){
-            mGlSurface.onPause();
+        if(mGlSurfaceView != null){
+            mGlSurfaceView.onPause();
         }
         removeAllViews();
     }

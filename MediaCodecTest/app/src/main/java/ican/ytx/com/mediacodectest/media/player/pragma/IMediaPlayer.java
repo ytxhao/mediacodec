@@ -197,6 +197,7 @@ public interface IMediaPlayer {
 
 
     void requestRenderer();
-    //void setSurfaceView(Surface glSurface);
+
+    void setGlSurfaceView(VideoGlSurfaceView glSurfaceView);
 
 }

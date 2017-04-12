@@ -31,7 +31,8 @@ JNIEXPORT void JNICALL android_media_player_setGlSurface
         (JNIEnv *, jobject, jobject);
 
 
-
+JNIEXPORT void JNICALL android_media_player_setGlSurfaceView
+        (JNIEnv *, jobject, jobject);
 
 JNIEXPORT void JNICALL android_media_player_setGlTexture
 (JNIEnv *, jobject, jint,jobject);

@@ -33,6 +33,7 @@ set_target_properties( # Specifies the target library.
 
 # Include libraries needed for native-codec-jni lib
 target_link_libraries(native-ytx-lib
+                      native-gl-lib
                       png-lib
                       android
                       log
