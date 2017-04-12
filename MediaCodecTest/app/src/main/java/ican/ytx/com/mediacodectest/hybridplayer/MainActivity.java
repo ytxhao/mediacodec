@@ -31,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.bt).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ytxVideoView.setVideoPath(filePath[3]);
+                ytxVideoView.setVideoPath(filePath[4]);
                 ytxVideoView.start();
             }
         });

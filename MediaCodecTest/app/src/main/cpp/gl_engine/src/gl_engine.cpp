@@ -291,10 +291,10 @@ void GlEngine::drawFrame() {
         // bind textures
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, rgbaTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, videoWidth, videoHeight, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, videoWidth, videoHeight, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         checkGlError("glTexImage2D");
-        glUniform1i(rgbaHandle, 3);
+        glUniform1i(rgbaHandle, 0);
 
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

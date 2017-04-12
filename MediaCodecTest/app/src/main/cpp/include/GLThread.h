@@ -31,7 +31,7 @@ public:
 
     void stop();
 
-    void initEGL();
+    void initEGL(int width, int height);
     void drawGL(GlslFilter *filter);
     void deInitEGL();
     void enqueue(AVMessage *msg);
@@ -49,7 +49,7 @@ public:
     EGLSurface eglSurface;
     EGLContext eglCtx;
     EGLDisplay eglDisp;
-
+    void *RGBABuffer;
     int times=0;
 
 };

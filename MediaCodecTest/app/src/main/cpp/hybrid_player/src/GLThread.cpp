@@ -15,7 +15,26 @@ GLThread::GLThread(VideoStateInfo *mVideoStateInfo) {
     this->mVideoStateInfo = mVideoStateInfo;
     mPicture=NULL;
     mTexturePicture=NULL;
+    RGBABuffer = NULL;
 
+}
+
+GLThread::~GLThread() {
+
+    if(RGBABuffer != NULL){
+        free(RGBABuffer);
+        RGBABuffer = NULL;
+    }
+
+    if(mPicture != NULL){
+        free(mPicture);
+        mPicture = NULL;
+    }
+
+    if(mTexturePicture != NULL){
+        free(mTexturePicture);
+        mTexturePicture = NULL;
+    }
 }
 
 void GLThread::handleRun(void *ptr)
@@ -54,13 +73,20 @@ bool GLThread::process(AVMessage *msg) {
         case GL_MSG_RENDERER:
             drawGL(glslFilter);
 
-           // if(times < 5){
+//            if(times < 25){
                 saveBmp();
-            //}
-            //times++;
+//            }
+//            times++;
             break;
         case GL_MSG_DECODED_FIRST_FRAME:
+            ALOGI("GL_MSG_DECODED_FIRST_FRAME mVideoWidth=%d mVideoHeight=%d"+mVideoStateInfo->mVideoWidth,mVideoStateInfo->mVideoHeight);
+            int picture_size = mVideoStateInfo->mVideoWidth*mVideoStateInfo->mVideoHeight;
+            RGBABuffer = malloc((size_t) (picture_size * 4));
+            memset(RGBABuffer, 0, (size_t) (picture_size * 4));
 
+            initEGL(mVideoStateInfo->mVideoWidth,mVideoStateInfo->mVideoHeight);
+            glslFilter = new GlslFilter();
+            glslFilter->initial();
             break;
     }
 
@@ -70,9 +96,9 @@ bool GLThread::process(AVMessage *msg) {
 
 bool GLThread::prepare() {
 
-    initEGL();
-    glslFilter = new GlslFilter();
-    glslFilter->initial();
+
+//    glslFilter = new GlslFilter();
+//    glslFilter->initial();
     return true;
 }
 
@@ -149,51 +175,22 @@ void GLThread::SnapshotBmpRGBA(GLvoid * pData, int width, int height,  char * fi
 }
 
 void GLThread::saveBmp(){
-    int picture_size = mVideoStateInfo->mVideoWidth*mVideoStateInfo->mVideoHeight;
-    unsigned char *RGBABuffer = (unsigned char *) malloc(picture_size * 4);
-    unsigned char *BGRABuffer = (unsigned char *) malloc(picture_size * 4);
-    unsigned char *RGBBuffer = (unsigned char *) malloc(picture_size * 3);
-    unsigned char *BGRBuffer = (unsigned char *) malloc(picture_size * 3);
-
-    memset(RGBABuffer,0,picture_size* 4);
-    memset(RGBBuffer,0,picture_size* 3);
-
-    memset(BGRABuffer,0,picture_size* 4);
-    memset(BGRBuffer,0,picture_size* 3);
 
     const int BMP_ROW_ALIGN = 4;
 
     glPixelStorei(GL_PACK_ALIGNMENT, BMP_ROW_ALIGN);
     glReadPixels(0, 0, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
 
-
-    int strideRGBA=4;
-    int strideBGR=3;
-    // int len = mVideoWidth*mVideoHeight;
-
-    for(int i=0;i<picture_size;i++){
-        BGRBuffer[i*strideBGR]=RGBABuffer[i*strideRGBA+2]; //B
-        BGRBuffer[i*strideBGR+1]=RGBABuffer[i*strideRGBA+1]; //R
-        BGRBuffer[i*strideBGR+2]=RGBABuffer[i*strideRGBA]; //G
-
-    }
-
-//    char file[1025]={0};
-//    sprintf(file,"/storage/emulated/0/egl%d.bmp",times);
-//    SnapshotBmpRGB(BGRBuffer, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight, file);
-
-
-
     addRendererVideoFrameRGBA(mVideoStateInfo->GraphicRendererObj,
                               RGBABuffer,
                               mVideoStateInfo->mVideoWidth,
-                              mVideoStateInfo->mVideoWidth);
+                              mVideoStateInfo->mVideoHeight);
 
     android_media_player_notifyRenderFrame(mVideoStateInfo->VideoGlSurfaceViewObj);
 
 }
 
-void GLThread::initEGL() {
+void GLThread::initEGL(int width, int height) {
 
     // EGL config attributes
     const EGLint confAttr[] =
@@ -216,8 +213,8 @@ void GLThread::initEGL() {
     // surface attributes
     // the surface size is set to the input frame size
     const EGLint surfaceAttr[] = {
-            EGL_WIDTH,512,
-            EGL_HEIGHT,512,
+            EGL_WIDTH,width,
+            EGL_HEIGHT,height,
             EGL_NONE
     };
     EGLint eglMajVers, eglMinVers;
