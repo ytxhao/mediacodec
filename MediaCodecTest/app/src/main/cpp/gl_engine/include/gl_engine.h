@@ -40,32 +40,18 @@ class GlEngine {
 private:
 
     //    "a_texCoord" //texcoord 是纹理坐标，在后续的Pixel shader中会用到用来读取纹理颜色
-    GLfloat coord_buffer[8] = {
-            0.0f, 1.0f,
-            1.0f, 1.0f,
-            0.0f, 0.0f,
-            1.0f, 0.0f,
-    };
 
-    //    "vPosition"
-    GLfloat vertice_buffer[8] = {
-            -1.0f, -1.0f,
-            1.0f, -1.0f,
-            -1.0f, 1.0f,
-            1.0f, 1.0f,
-    };
-
-    char *plane[3] = {NULL, NULL, NULL};
-    void *pixels = NULL;
+    char *plane[3] ;
+    void *pixels ;
 
 
 
     GLuint yTextureId, uTextureId, vTextureId, rgbaTextureId;
     int yHandle, uHandle, vHandle, rgbaHandle;
-    int videoWidth = 0;
-    int videoHeight = 0;
-    int mScreenWidth = 720;
-    int mScreenHeight = 1080;
+    int videoWidth ;
+    int videoHeight ;
+    int mScreenWidth ;
+    int mScreenHeight ;
 
     GLuint vertexShader;
     GLuint pixelShader;

@@ -7,6 +7,7 @@
 
 
 #include <HybridMediaPlayer.h>
+
 #include "../../include/ALog-priv.h"
 
 //该文件必须包含在源文件中(*.cpp),以免宏展开时提示重复定义的错误
@@ -14,8 +15,15 @@
 
 
 HybridMediaPlayer::HybridMediaPlayer() {
+
+    wanted_stream_spec[AVMEDIA_TYPE_VIDEO] = "vst";
+    wanted_stream_spec[AVMEDIA_TYPE_AUDIO] = "ast";
+    wanted_stream_spec[AVMEDIA_TYPE_SUBTITLE] = "sst";
+
     mVideoStateInfo = new VideoStateInfo();
     mGLThread = new GLThread(mVideoStateInfo);
+    mVideoRefreshController = new VideoRefreshController(mVideoStateInfo);
+    mVideoStateInfo->frameQueueVideo->frameQueueInit(VIDEO_PICTURE_QUEUE_SIZE, 1);
 }
 
 HybridMediaPlayer::~HybridMediaPlayer() {
@@ -117,12 +125,72 @@ int HybridMediaPlayer::prepare() {
 
 int HybridMediaPlayer::prepareAsync() {
 
-    mListener->notify(1, 0, 0);
+
+    pthread_create(&mPlayerPrepareAsyncThread, NULL, prepareAsyncPlayer, this);
+
     return 0;
 }
 
 void *HybridMediaPlayer::prepareAsyncPlayer(void *ptr) {
 
+    HybridMediaPlayer* mPlayer = (HybridMediaPlayer *) ptr;
+
+    av_register_all();
+    avformat_network_init();
+    mPlayer->pFormatCtx = avformat_alloc_context();
+    ALOGI("prepareAsyncPlayer prepare this->filePath=%s\n",mPlayer->filePath);
+    //   ALOGI("Couldn't open input stream.\n");
+    if(avformat_open_input(&mPlayer->pFormatCtx,mPlayer->filePath,NULL,NULL)!=0){
+        ALOGI("Couldn't open input stream.\n");
+        return 0;
+    }
+
+    if(avformat_find_stream_info(mPlayer->pFormatCtx,NULL)<0){
+        ALOGI("Couldn't find stream information.\n");
+        return 0;
+    }
+
+
+    for(int i=0; i<mPlayer->pFormatCtx->nb_streams; i++) {
+        AVStream *st = mPlayer->pFormatCtx->streams[i];
+        enum AVMediaType type = st->codecpar->codec_type;
+
+        if (type >= 0 && mPlayer->wanted_stream_spec[type] && mPlayer->mVideoStateInfo->st_index[type] == -1) {
+            if (avformat_match_stream_specifier(mPlayer->pFormatCtx, st, mPlayer->wanted_stream_spec[type]) > 0) {
+                mPlayer->mVideoStateInfo->st_index[type] = i;
+            }
+        }
+
+    }
+
+    for (int i = 0; i < AVMEDIA_TYPE_NB; i++) {
+        if (mPlayer->wanted_stream_spec[i] && mPlayer->mVideoStateInfo->st_index[i] == -1) {
+            ALOGI("Stream specifier %s does not match any %s stream\n", mPlayer->wanted_stream_spec[(AVMediaType)i], av_get_media_type_string((AVMediaType)i));
+            mPlayer->mVideoStateInfo->st_index[i] = INT_MAX;
+        }
+    }
+
+
+    mPlayer->mVideoStateInfo->pFormatCtx = mPlayer->pFormatCtx;
+    mPlayer->mVideoStateInfo->max_frame_duration = (mPlayer->mVideoStateInfo->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) ? 10.0 : 3600.0;
+
+    ALOGI("mVideoStateInfo->max_frame_duration=%lf\n",mPlayer->mVideoStateInfo->max_frame_duration);
+    if(mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_AUDIO] >= 0){
+        mPlayer->streamComponentOpen(mPlayer->mVideoStateInfo->streamAudio,mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_AUDIO]);
+    }
+
+    if(mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_VIDEO] >= 0){
+        mPlayer->streamComponentOpen(mPlayer->mVideoStateInfo->streamVideo,mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_VIDEO]);
+    }
+
+    if(mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_SUBTITLE] >= 0){
+        mPlayer->streamComponentOpen(mPlayer->mVideoStateInfo->streamSubtitle,mPlayer->mVideoStateInfo->st_index[AVMEDIA_TYPE_SUBTITLE]);
+    }
+
+
+
+    mPlayer->mListener->notify(1, 0, 0);
+    return 0;
 }
 
 
@@ -207,6 +275,7 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
             }
 
             int64_t presentationNano = info.presentationTimeUs * 1000;
+            ALOGI("info.presentationTimeUs=%lld presentationNano=%lld",info.presentationTimeUs,presentationNano);
             if (d->renderstart < 0) {
                 d->renderstart = systemNanoTime() - presentationNano;
             }
@@ -214,6 +283,9 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
             if (delay > 0) {
                 usleep(delay / 1000);
             }
+
+            mVideoStateInfo->vp = mVideoStateInfo->frameQueueVideo->frameQueuePeekWritable();
+            mVideoStateInfo->vp->pts = info.presentationTimeUs;
 
             AMediaCodec_releaseOutputBuffer(d->codec, status, info.size != 0);
             if (d->renderonce) {
@@ -239,6 +311,8 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
 }
 
 void HybridMediaPlayer::decodeMovie(void *ptr) {
+
+    mVideoRefreshController->startAsync();
 
     while(!data.sawInputEOS || !data.sawOutputEOS){
         doCodecWork(&data);
@@ -458,4 +532,94 @@ void HybridMediaPlayer::rendererTexture(){
     mVideoStateInfo->messageQueueGL->put(&msg);
 
 
+}
+
+
+int HybridMediaPlayer::streamComponentOpen(InputStream *is, int stream_index)
+{
+
+    if (stream_index < 0 || stream_index > pFormatCtx->nb_streams) {
+        return -1;
+    }
+
+
+    is->dec_ctx = avcodec_alloc_context3(NULL);
+    avcodec_parameters_to_context(is->dec_ctx, pFormatCtx->streams[stream_index]->codecpar);
+
+    av_codec_set_pkt_timebase(is->dec_ctx, pFormatCtx->streams[stream_index]->time_base);
+    is->st = pFormatCtx->streams[stream_index];
+    AVCodec* codec = avcodec_find_decoder(is->dec_ctx->codec_id);
+    if (codec == NULL) {
+        return -1;
+    }
+
+    ALOGI("streamVideo.dec_ctx->codec_id=%d\n",is->dec_ctx->codec_id);
+
+    is->dec_ctx->codec_id = codec->id;
+
+
+
+    // Open codec
+    if (avcodec_open2(is->dec_ctx, codec,NULL) < 0) {
+        return -1;
+    }
+
+
+    switch (is->dec_ctx->codec_type){
+        case AVMEDIA_TYPE_AUDIO:
+        {
+            //解压缩数据
+
+            //frame->16bit 44100 PCM 统一音频采样格式与采样率
+            //重采样设置参数-------------start
+            //输入的采样格式
+            mVideoStateInfo->in_sample_fmt = is->dec_ctx->sample_fmt;
+            //输出采样格式16bit PCM
+            mVideoStateInfo->out_sample_fmt = AV_SAMPLE_FMT_S16;
+            //输入采样率
+            mVideoStateInfo->in_sample_rate = is->dec_ctx->sample_rate;
+            //输出采样率
+            //out_sample_rate = 44100;
+            mVideoStateInfo->out_sample_rate = mVideoStateInfo->in_sample_rate;
+            //获取输入的声道布局
+            //根据声道个数获取默认的声道布局（2个声道，默认立体声stereo）
+            //av_get_default_channel_layout(codecCtx->channels);
+            mVideoStateInfo->out_nb_samples=is->dec_ctx->frame_size;
+
+            mVideoStateInfo->in_ch_layout = is->dec_ctx->channel_layout;
+            //输出的声道布局（立体声）
+            mVideoStateInfo->out_ch_layout = AV_CH_LAYOUT_STEREO;
+
+            //输出的声道个数
+            mVideoStateInfo->out_channel_nb = av_get_channel_layout_nb_channels(mVideoStateInfo->out_ch_layout);
+
+            //重采样设置参数-------------end
+
+            ALOGI("### in_sample_rate=%d\n",mVideoStateInfo->in_sample_rate);
+            ALOGI("### in_sample_fmt=%d\n",mVideoStateInfo->in_sample_fmt);
+            ALOGI("### out_nb_samples=%d\n",mVideoStateInfo->out_nb_samples);
+            ALOGI("### out_sample_rate=%d\n",mVideoStateInfo->out_sample_rate);
+            ALOGI("### out_sample_fmt=%d\n",mVideoStateInfo->out_sample_fmt);
+            ALOGI("### out_channel_nb=%d\n",mVideoStateInfo->out_channel_nb);
+
+            ALOGI("### in_ch_layout=%d\n",mVideoStateInfo->in_ch_layout);
+            ALOGI("### out_ch_layout=%d\n",mVideoStateInfo->out_ch_layout);
+        }
+            break;
+        case AVMEDIA_TYPE_VIDEO:
+
+//            mVideoStateInfo->mVideoWidth = is->dec_ctx->width;
+//            mVideoStateInfo->mVideoHeight = is->dec_ctx->height;
+            mDuration =  pFormatCtx->duration;
+
+            break;
+        case AVMEDIA_TYPE_SUBTITLE:
+
+            ALOGI("AVMEDIA_TYPE_SUBTITLE");
+
+            break;
+    }
+
+
+    return 0;
 }

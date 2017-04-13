@@ -25,6 +25,7 @@
 #include "VideoStateInfo.h"
 #include "GLThread.h"
 #include "headerBmp.h"
+#include <VideoRefreshController.h>
 // ----------------------------------------------------------------------------
 // for native window JNI
 #include "media/NdkMediaCodec.h"
@@ -199,6 +200,14 @@ public:
 
 
     GLThread *mGLThread;
+
+    VideoRefreshController *mVideoRefreshController;
+
+    AVFormatContext *pFormatCtx;
+    const char* wanted_stream_spec[AVMEDIA_TYPE_NB]={0};
+
+    int streamComponentOpen(InputStream *is, int stream_index);
+
 };
 
 

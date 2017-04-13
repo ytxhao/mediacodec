@@ -33,9 +33,25 @@ static const char gFragmentShader[] =
                 "gl_FragColor = texture2D(tex_rgba, tc);\n"
                 "}\n";
 
+static GLfloat coord_buffer[8] = {
+        0.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+};
+
+//    "vPosition"
+static GLfloat vertice_buffer[8] = {
+        -1.0f, -1.0f,
+        1.0f, -1.0f,
+        -1.0f, 1.0f,
+        1.0f, 1.0f,
+};
+
 static JavaVM *sVm;
 
 GlEngine::GlEngine() {
+
     yTextureId = 1025;
     uTextureId = 1025;
     vTextureId = 1025;
@@ -68,6 +84,10 @@ GlEngine::GlEngine() {
     isInitComplete = false;
 
     pixels = NULL;
+
+    plane[0] = NULL;
+    plane[1] = NULL;
+    plane[2] = NULL;
 
 }
 

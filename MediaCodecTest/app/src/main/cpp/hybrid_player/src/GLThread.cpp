@@ -178,15 +178,19 @@ void GLThread::saveBmp(){
 
     const int BMP_ROW_ALIGN = 4;
 
+    mVideoStateInfo->vp->pixels = (char *) malloc(
+            (size_t) (mVideoStateInfo->mVideoWidth * mVideoStateInfo->mVideoHeight*4));
+
     glPixelStorei(GL_PACK_ALIGNMENT, BMP_ROW_ALIGN);
-    glReadPixels(0, 0, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,RGBABuffer);
+    glReadPixels(0, 0, mVideoStateInfo->mVideoWidth, mVideoStateInfo->mVideoHeight,GL_RGBA,GL_UNSIGNED_BYTE,mVideoStateInfo->vp->pixels);
+    mVideoStateInfo->frameQueueVideo->frameQueuePush();
 
-    addRendererVideoFrameRGBA(mVideoStateInfo->GraphicRendererObj,
-                              RGBABuffer,
-                              mVideoStateInfo->mVideoWidth,
-                              mVideoStateInfo->mVideoHeight);
-
-    android_media_player_notifyRenderFrame(mVideoStateInfo->VideoGlSurfaceViewObj);
+//    addRendererVideoFrameRGBA(mVideoStateInfo->GraphicRendererObj,
+//                              RGBABuffer,
+//                              mVideoStateInfo->mVideoWidth,
+//                              mVideoStateInfo->mVideoHeight);
+//
+//    android_media_player_notifyRenderFrame(mVideoStateInfo->VideoGlSurfaceViewObj);
 
 }
 

@@ -13,9 +13,14 @@
 VideoStateInfo::VideoStateInfo() {
 
     messageQueueGL = new MessageQueue();
+    frameQueueVideo = new FrameQueueVideo();
+    vp = NULL;
     mVideoWidth = 0;
     mVideoHeight = 0;
-
+    memset(st_index, -1, sizeof(st_index));
+    streamVideo = new InputStream();
+    streamAudio = new InputStream();
+    streamSubtitle = new InputStream();
 
 
 }

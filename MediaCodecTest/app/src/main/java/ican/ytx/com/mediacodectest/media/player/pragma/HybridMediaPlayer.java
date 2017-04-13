@@ -119,7 +119,20 @@ public class HybridMediaPlayer extends AbstractMediaPlayer {
             if (!mIsLibLoaded) {
                 if (libLoader == null)
                     libLoader = sLocalLibLoader;
-
+                    libLoader.loadLibrary("gnustl_shared");
+                    libLoader.loadLibrary("mp4v2");
+                    libLoader.loadLibrary("faad");
+                    libLoader.loadLibrary("faac");
+                    libLoader.loadLibrary("rtmp");
+                    libLoader.loadLibrary("x264");
+                    libLoader.loadLibrary("avutil");
+                    libLoader.loadLibrary("swresample");
+                    libLoader.loadLibrary("swscale");
+                    libLoader.loadLibrary("postproc");
+                    libLoader.loadLibrary("avcodec");
+                    libLoader.loadLibrary("avformat");
+                    libLoader.loadLibrary("avdevice");
+                    libLoader.loadLibrary("avfilter");
                     libLoader.loadLibrary("native-ytx-lib");
                     mIsLibLoaded = true;
             }
