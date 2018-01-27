@@ -13,6 +13,12 @@
         android:layout_height="wrap_content"
         android:text="start"/>
 
+    <Button
+        android:id="@+id/btSave"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="start"/>
+
     <ican.ytx.com.mediacodectest.media.player.view.YtxVideoView
         android:id="@+id/ytxVideoView"
         android:layout_width="match_parent"

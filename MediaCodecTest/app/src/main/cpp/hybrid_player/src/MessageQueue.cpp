@@ -4,6 +4,7 @@
 #define NDEBUG 0
 #define TAG "FFMpegMessageQueue"
 
+#include <malloc.h>
 #include "ALog-priv.h"
 
 #include "MessageQueue.h"

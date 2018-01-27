@@ -6,6 +6,7 @@
 #define TAG "YTX-GlslFilter-JNI"
 #include <ALog-priv.h>
 #include <GlslFilter.h>
+#include <malloc.h>
 #include "GlslFilter.h"
 
 static const char gVertexShader[]=

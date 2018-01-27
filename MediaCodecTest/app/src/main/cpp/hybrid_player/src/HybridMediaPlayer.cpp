@@ -85,6 +85,9 @@ int HybridMediaPlayer::setDataSource(const char *url) {
             // Production code should check for errors.
             AMediaExtractor_selectTrack(ex, i);
             codec = AMediaCodec_createDecoderByType(mime);
+//            AMediaFormat_setInt32(format,AMEDIAFORMAT_KEY_WIDTH,640);
+//            AMediaFormat_setInt32(format,AMEDIAFORMAT_KEY_HEIGHT,160);
+            ALOGI("track mime: %s", mime);
             AMediaCodec_configure(codec, format, data.window, NULL, 0);
             data.ex = ex;
             data.codec = codec;
@@ -235,6 +238,12 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
 
     ssize_t bufidx = -1;
     if (!d->sawInputEOS) {
+//        AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
+//        AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_WIDTH,&mVideoStateInfo->mVideoWidth);
+//        AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,&mVideoStateInfo->mVideoHeight);
+//        ALOGI("msg.what = GL_MSG_DECODED_FIRST_FRAME for test mVideoWidth=%d,mVideoHeight=%d",mVideoStateInfo->mVideoWidth,mVideoStateInfo->mVideoHeight);
+        //AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
+        //AMediaFormat_setInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,200);
         bufidx = AMediaCodec_dequeueInputBuffer(d->codec, 2000);
         //ALOGI("input buffer %zd", bufidx);
         if (bufidx >= 0) {
@@ -268,10 +277,11 @@ void HybridMediaPlayer::doCodecWork(workerdata *d) {
                 AMediaFormat* mAMediaFormat =  AMediaCodec_getOutputFormat(d->codec);
                 AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_WIDTH,&mVideoStateInfo->mVideoWidth);
                 AMediaFormat_getInt32(mAMediaFormat,AMEDIAFORMAT_KEY_HEIGHT,&mVideoStateInfo->mVideoHeight);
+                //mVideoStateInfo->mVideoHeight = 360;
                 AVMessage msg;
                 msg.what = GL_MSG_DECODED_FIRST_FRAME;
                 mVideoStateInfo->messageQueueGL->put(&msg);
-                ALOGI("msg.what = GL_MSG_DECODED_FIRST_FRAME for test");
+                ALOGI("msg.what = GL_MSG_DECODED_FIRST_FRAME for test mVideoWidth=%d,mVideoHeight=%d",mVideoStateInfo->mVideoWidth,mVideoStateInfo->mVideoHeight);
             }
 
             int64_t presentationNano = info.presentationTimeUs * 1000;
